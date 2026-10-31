@@ -26,6 +26,7 @@ import auditRoutes from './routes/audit.routes';
 import alertRoutes from './routes/alert.routes';
 import aiRoutes from './routes/ai.routes';
 import publicRoutes from './routes/public.routes';
+import userRoutes from './routes/user.routes';
 
 export const app = express();
 
@@ -96,6 +97,7 @@ app.use('/api/v1/audit-logs', auditRoutes);
 app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/public', publicRoutes);
+app.use('/api/v1/users', userRoutes);
 
 // Centralized error handling
 app.use(errorHandler);

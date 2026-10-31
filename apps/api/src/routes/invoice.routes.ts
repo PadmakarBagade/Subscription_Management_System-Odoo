@@ -8,6 +8,7 @@ import { PdfService } from '../services/pdfService';
 import { AuditService } from '../services/auditService';
 import { EmailService } from '../services/emailService';
 import { config } from '../config';
+import { sanitizeDataForRole } from '../utils/serializer';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: invoices,
+      data: sanitizeDataForRole(invoices, req.user?.role),
       meta: {
         total,
         page,
@@ -170,7 +171,7 @@ router.post('/', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Respon
     res.status(201).json({
       success: true,
       message: 'Draft invoice created successfully',
-      data: invoice,
+      data: sanitizeDataForRole(invoice, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -202,7 +203,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: invoice,
+      data: sanitizeDataForRole(invoice, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -265,9 +266,9 @@ router.post('/:id/confirm', requireRole('ADMIN', 'STAFF'), async (req: Request, 
 });
 
 // -------------------------------------------------------------
-// POST /api/v1/invoices/:id/cancel (Cancel unpaid invoice) - ADMIN only
+// POST /api/v1/invoices/:id/cancel (Cancel unpaid invoice) - ADMIN, STAFF
 // -------------------------------------------------------------
-router.post('/:id/cancel', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/cancel', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
@@ -301,6 +302,47 @@ router.post('/:id/cancel', requireRole('ADMIN'), async (req: Request, res: Respo
       success: true,
       message: 'Invoice cancelled successfully',
       data: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/v1/invoices/:id/send (Send invoice email to customer) - ADMIN, STAFF
+// -------------------------------------------------------------
+router.post('/:id/send', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      include: { customer: { include: { user: true } } },
+    });
+
+    if (!invoice) throw new AppError('Invoice not found', 404);
+    if (!invoice.customer?.user?.email) {
+      throw new AppError('Customer email not found', 400);
+    }
+
+    await EmailService.sendInvoiceEmail(
+      invoice.customer.user.email,
+      invoice.invoiceNumber,
+      `₹${invoice.totalAmount}`,
+      invoice.dueDate.toLocaleDateString(),
+      `${config.webAppUrl}/portal/invoices`
+    );
+
+    await AuditService.log({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      action: 'INVOICE_SENT',
+      entityType: 'Invoice',
+      entityId: invoice.id,
+      afterState: { sentTo: invoice.customer.user.email },
+    });
+
+    res.json({
+      success: true,
+      message: `Invoice email successfully sent to ${invoice.customer.user.email}`,
     });
   } catch (error) {
     next(error);

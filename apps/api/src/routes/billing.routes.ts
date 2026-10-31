@@ -9,6 +9,53 @@ const router = Router();
 router.use(authenticate, requireRole('ADMIN'));
 
 // -------------------------------------------------------------
+// GET /api/v1/billing/health (Billing engine health) - ADMIN only
+// -------------------------------------------------------------
+router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const [latestRun, activeSubscriptionsCount, pendingSubscriptionsDue, overdueInvoicesCount] = await Promise.all([
+      prisma.billingRun.findFirst({
+        orderBy: { startTime: 'desc' },
+        include: { _count: { select: { items: true } } },
+      }),
+      prisma.subscription.count({
+        where: { status: 'ACTIVE' },
+      }),
+      prisma.subscription.count({
+        where: {
+          status: 'ACTIVE',
+          nextBillingDate: { lte: new Date() },
+        },
+      }),
+      prisma.invoice.count({
+        where: {
+          balance: { gt: 0 },
+          dueDate: { lt: new Date() },
+          status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+        },
+      }),
+    ]);
+
+    const isHealthy = !latestRun || latestRun.status === 'COMPLETED' || latestRun.status === 'RUNNING';
+
+    res.json({
+      success: true,
+      data: {
+        status: isHealthy ? 'HEALTHY' : 'DEGRADED',
+        scheduler: 'ACTIVE',
+        activeSubscriptionsCount,
+        pendingSubscriptionsDue,
+        overdueInvoicesCount,
+        latestRun,
+        lastCheckedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
 // POST /api/v1/billing/trigger (Manually trigger billing run)
 // -------------------------------------------------------------
 router.post('/trigger', async (req: Request, res: Response, next: NextFunction) => {

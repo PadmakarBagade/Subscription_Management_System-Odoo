@@ -7,10 +7,13 @@ import { AuditService } from '../services/auditService';
 
 const router = Router();
 
+// Discount rules restricted to ADMIN and STAFF (Customer: NONE)
+router.use(authenticate, requireRole('ADMIN', 'STAFF'));
+
 // -------------------------------------------------------------
 // GET /api/v1/discounts (List discount rules)
 // -------------------------------------------------------------
-router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rules = await prisma.discountRule.findMany({
       orderBy: { createdAt: 'desc' },
@@ -31,7 +34,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
 // -------------------------------------------------------------
 // POST /api/v1/discounts (Create discount rule) - ADMIN only
 // -------------------------------------------------------------
-router.post('/', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = DiscountRuleCreateSchema.parse(req.body);
 
@@ -80,7 +83,7 @@ router.post('/', authenticate, requireRole('ADMIN'), async (req: Request, res: R
 // -------------------------------------------------------------
 // PATCH /api/v1/discounts/:id (Update discount rule) - ADMIN only
 // -------------------------------------------------------------
-router.patch('/:id', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const existing = await prisma.discountRule.findUnique({
       where: { id: req.params.id },
@@ -107,6 +110,40 @@ router.patch('/:id', authenticate, requireRole('ADMIN'), async (req: Request, re
       success: true,
       message: 'Discount rule updated successfully',
       data: updated,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
+// DELETE /api/v1/discounts/:id (Deactivate discount rule) - ADMIN only
+// -------------------------------------------------------------
+router.delete('/:id', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const existing = await prisma.discountRule.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!existing) throw new AppError('Discount rule not found', 404);
+
+    const deactivated = await prisma.discountRule.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
+
+    await AuditService.log({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      action: 'DISCOUNT_RULE_DEACTIVATED',
+      entityType: 'DiscountRule',
+      entityId: deactivated.id,
+    });
+
+    res.json({
+      success: true,
+      message: 'Discount rule deactivated successfully',
+      data: deactivated,
     });
   } catch (error) {
     next(error);

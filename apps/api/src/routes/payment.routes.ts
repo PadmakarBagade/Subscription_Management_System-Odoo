@@ -361,4 +361,80 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
   }
 });
 
+// -------------------------------------------------------------
+// POST /api/v1/payments/:id/reverse (Reverse/Refund payment) - ADMIN only
+// -------------------------------------------------------------
+router.post('/:id/reverse', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        allocations: {
+          include: { invoice: true },
+        },
+      },
+    });
+
+    if (!payment) throw new AppError('Payment not found', 404);
+
+    if (payment.status === 'REFUNDED') {
+      throw new AppError('Payment has already been reversed/refunded', 400);
+    }
+
+    if (payment.status !== 'SUCCESS') {
+      throw new AppError(`Cannot reverse payment with status ${payment.status}`, 400);
+    }
+
+    const reason = req.body.reason || 'Admin authorized payment reversal';
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Mark payment as REFUNDED
+      const updatedPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'REFUNDED',
+          notes: payment.notes ? `${payment.notes} | Reversed: ${reason}` : `Reversed: ${reason}`,
+        },
+      });
+
+      // 2. Adjust invoice balances
+      for (const allocation of payment.allocations) {
+        const inv = allocation.invoice;
+        const newAmountPaid = Math.max(0, Number(inv.amountPaid) - Number(allocation.allocatedAmount));
+        const newBalance = Math.min(Number(inv.totalAmount), Number(inv.balance) + Number(allocation.allocatedAmount));
+        const newStatus = newAmountPaid <= 0 ? 'CONFIRMED' : 'PARTIALLY_PAID';
+
+        await tx.invoice.update({
+          where: { id: inv.id },
+          data: {
+            amountPaid: newAmountPaid,
+            balance: newBalance,
+            status: newStatus,
+          },
+        });
+      }
+
+      return updatedPayment;
+    });
+
+    await AuditService.log({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      action: 'PAYMENT_REVERSED',
+      entityType: 'Payment',
+      entityId: result.id,
+      beforeState: payment,
+      afterState: result,
+    });
+
+    res.json({
+      success: true,
+      message: 'Payment reversed and refunded successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

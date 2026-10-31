@@ -8,6 +8,7 @@ import { DiscountService } from '../services/discountService';
 import { TaxService } from '../services/taxService';
 import { AuditService } from '../services/auditService';
 import { calculateNextBillingDate } from '../utils/date';
+import { sanitizeDataForRole } from '../utils/serializer';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: subscriptions,
+      data: sanitizeDataForRole(subscriptions, req.user?.role),
       meta: {
         total,
         page,
@@ -242,7 +243,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     res.status(201).json({
       success: true,
       message: 'Subscription created successfully',
-      data: subscription,
+      data: sanitizeDataForRole(subscription, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -275,7 +276,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: subscription,
+      data: sanitizeDataForRole(subscription, req.user?.role),
     });
   } catch (error) {
     next(error);

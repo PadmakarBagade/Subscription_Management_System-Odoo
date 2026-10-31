@@ -16,8 +16,12 @@ import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { useAuth } from '../../context/AuthContext';
 
 export const TaxesPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [taxes, setTaxes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -145,19 +149,32 @@ export const TaxesPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isAdmin
+                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+            }`}>
+              {isAdmin ? 'Tax Management' : 'Read-Only Catalog'}
+            </span>
+          </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <Percent className="w-7 h-7 text-indigo-600" />
             Tax Configuration & GST Compliance
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Configure state and national tax schedules, CGST / SGST intra-state splits, and IGST inter-state assessments.
+            {isAdmin
+              ? 'Configure state and national tax schedules, CGST / SGST intra-state splits, and IGST inter-state assessments.'
+              : 'Browse active system tax schedules and GST rates applied to customer quotations and invoices.'}
           </p>
         </div>
 
-        <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Create Tax Rule
-        </Button>
+        {isAdmin && (
+          <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Create Tax Rule
+          </Button>
+        )}
       </div>
 
       {/* Info card */}
@@ -194,7 +211,7 @@ export const TaxesPage: React.FC = () => {
                   <th className="px-4 py-3 text-center">IGST</th>
                   <th className="px-4 py-3 text-center">Priority</th>
                   <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -225,28 +242,42 @@ export const TaxesPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-center font-mono text-slate-500">{t.priority}</td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleToggleActive(t)}
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
-                          t.isActive
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {t.isActive ? 'Active' : 'Disabled'}
-                      </button>
+                      {isAdmin ? (
+                        <button
+                          onClick={() => handleToggleActive(t)}
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                            t.isActive
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {t.isActive ? 'Active' : 'Disabled'}
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            t.isActive
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {t.isActive ? 'Active' : 'Disabled'}
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(t)}
-                        className="flex items-center gap-1.5 ml-auto"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit
-                      </Button>
-                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(t)}
+                          className="flex items-center gap-1.5 ml-auto"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

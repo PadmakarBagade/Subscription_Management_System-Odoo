@@ -14,6 +14,7 @@ import {
   FileText,
   User,
   Loader2,
+  Mail,
 } from 'lucide-react';
 import { apiRequest, downloadPdf } from '../../services/api';
 import { Card } from '../../components/common/Card';
@@ -190,6 +191,17 @@ export const InvoicesPage: React.FC = () => {
       }
     } catch (err: any) {
       alert(`Failed to cancel: ${err.message}`);
+    }
+  };
+
+  const handleSendInvoice = async (id: string) => {
+    try {
+      const res = await apiRequest(`/invoices/${id}/send`, { method: 'POST' });
+      if (res.success) {
+        alert(res.message || 'Invoice sent to customer successfully!');
+      }
+    } catch (err: any) {
+      alert(`Failed to send invoice email: ${err.message}`);
     }
   };
 
@@ -370,6 +382,14 @@ export const InvoicesPage: React.FC = () => {
                         >
                           <Download className="w-3.5 h-3.5 text-slate-600" />
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendInvoice(inv.id)}
+                          title="Send Invoice Email"
+                        >
+                          <Mail className="w-3.5 h-3.5 text-slate-600" />
+                        </Button>
                         {inv.status === 'DRAFT' && (
                           <Button
                             variant="primary"
@@ -380,7 +400,7 @@ export const InvoicesPage: React.FC = () => {
                             <CheckCircle className="w-3.5 h-3.5" />
                           </Button>
                         )}
-                        {user?.role === 'ADMIN' && inv.status !== 'PAID' && inv.status !== 'CANCELLED' && (
+                        {inv.status !== 'PAID' && inv.status !== 'CANCELLED' && (
                           <Button
                             variant="danger"
                             size="sm"
@@ -563,6 +583,13 @@ export const InvoicesPage: React.FC = () => {
               >
                 <Download className="w-4 h-4 mr-1.5" />
                 Download PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSendInvoice(selectedInvoice.id)}
+              >
+                <Mail className="w-4 h-4 mr-1.5" />
+                Send Email
               </Button>
               {selectedInvoice.status === 'DRAFT' && (
                 <Button variant="primary" onClick={() => handleConfirmInvoice(selectedInvoice.id)}>

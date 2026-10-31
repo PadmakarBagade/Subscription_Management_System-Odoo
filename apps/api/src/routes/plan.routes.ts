@@ -4,8 +4,12 @@ import { prisma } from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { authenticate, requireRole } from '../middleware/auth';
 import { AuditService } from '../services/auditService';
+import { sanitizeDataForRole } from '../utils/serializer';
 
 const router = Router();
+
+// Catalog plans access restricted to ADMIN and STAFF (Customer: NONE)
+router.use(authenticate, requireRole('ADMIN', 'STAFF'));
 
 // -------------------------------------------------------------
 // GET /api/v1/plans (List plans)
@@ -30,7 +34,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: plans,
+      data: sanitizeDataForRole(plans, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -40,7 +44,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // -------------------------------------------------------------
 // POST /api/v1/plans (Create plan) - ADMIN only
 // -------------------------------------------------------------
-router.post('/', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = PlanCreateSchema.parse(req.body);
 
@@ -123,7 +127,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: plan,
+      data: sanitizeDataForRole(plan, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -133,7 +137,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // -------------------------------------------------------------
 // PATCH /api/v1/plans/:id (Update plan) - ADMIN only
 // -------------------------------------------------------------
-router.patch('/:id', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = PlanUpdateSchema.parse(req.body);
 
@@ -180,7 +184,43 @@ router.patch('/:id', authenticate, requireRole('ADMIN'), async (req: Request, re
     res.json({
       success: true,
       message: 'Subscription plan updated successfully',
-      data: updated,
+      data: sanitizeDataForRole(updated, req.user?.role),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
+// DELETE /api/v1/plans/:id (Deactivate plan) - ADMIN only
+// -------------------------------------------------------------
+router.delete('/:id', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const existing = await prisma.plan.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!existing) {
+      throw new AppError('Plan not found', 404);
+    }
+
+    const deactivated = await prisma.plan.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
+
+    await AuditService.log({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      action: 'PLAN_DEACTIVATED',
+      entityType: 'Plan',
+      entityId: deactivated.id,
+    });
+
+    res.json({
+      success: true,
+      message: 'Subscription plan deactivated successfully',
+      data: deactivated,
     });
   } catch (error) {
     next(error);

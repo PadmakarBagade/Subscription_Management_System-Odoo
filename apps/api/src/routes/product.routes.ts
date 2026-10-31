@@ -4,8 +4,12 @@ import { prisma } from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { authenticate, requireRole } from '../middleware/auth';
 import { AuditService } from '../services/auditService';
+import { sanitizeDataForRole } from '../utils/serializer';
 
 const router = Router();
+
+// Catalog products access restricted to ADMIN and STAFF only (Customer: NONE)
+router.use(authenticate, requireRole('ADMIN', 'STAFF'));
 
 // -------------------------------------------------------------
 // GET /api/v1/products (List products with variants)
@@ -26,7 +30,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: products,
+      data: sanitizeDataForRole(products, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -36,7 +40,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // -------------------------------------------------------------
 // POST /api/v1/products (Create product) - ADMIN only
 // -------------------------------------------------------------
-router.post('/', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = ProductCreateSchema.parse(req.body);
 
@@ -106,7 +110,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: product,
+      data: sanitizeDataForRole(product, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -116,7 +120,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // -------------------------------------------------------------
 // PATCH /api/v1/products/:id (Update product) - ADMIN only
 // -------------------------------------------------------------
-router.patch('/:id', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = ProductUpdateSchema.parse(req.body);
 
@@ -200,7 +204,7 @@ router.patch('/:id', authenticate, requireRole('ADMIN'), async (req: Request, re
 // -------------------------------------------------------------
 // DELETE /api/v1/products/:id (Deactivate product) - ADMIN only
 // -------------------------------------------------------------
-router.delete('/:id', authenticate, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const existing = await prisma.product.findUnique({
       where: { id: req.params.id },

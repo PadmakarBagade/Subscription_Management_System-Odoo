@@ -4,7 +4,7 @@ import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-router.use(authenticate, requireRole('ADMIN', 'STAFF'));
+router.use(authenticate, requireRole('ADMIN'));
 
 // -------------------------------------------------------------
 // GET /api/v1/audit-logs

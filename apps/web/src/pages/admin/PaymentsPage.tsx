@@ -20,8 +20,12 @@ import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { useAuth } from '../../context/AuthContext';
 
 export const PaymentsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -125,6 +129,24 @@ export const PaymentsPage: React.FC = () => {
     }
   };
 
+  const handleReversePayment = async (p: any) => {
+    const reason = prompt(`Enter reason for reversing payment ${p.paymentNumber}:`);
+    if (!reason) return;
+
+    try {
+      const res = await apiRequest(`/payments/${p.id}/reverse`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      if (res.success) {
+        alert('Payment reversed and refunded successfully!');
+        fetchPayments();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Payment reversal failed');
+    }
+  };
+
   const filteredPayments = payments.filter((p) => {
     const term = search.toLowerCase();
     const pNum = p.paymentNumber?.toLowerCase() || '';
@@ -138,12 +160,23 @@ export const PaymentsPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isAdmin
+                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+            }`}>
+              {isAdmin ? 'Payment Governance' : 'Collections Desk'}
+            </span>
+          </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <CreditCard className="w-7 h-7 text-indigo-600" />
             Payment Transactions & Settlements
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Authoritative financial ledger tracking Razorpay webhooks, UPI, Netbanking, and authorized staff manual settlements.
+            {isAdmin
+              ? 'Authoritative financial ledger tracking Razorpay webhooks, UPI, Netbanking, and transaction reversals.'
+              : 'Record manual offline payments and view payment settlement records.'}
           </p>
         </div>
 
@@ -193,6 +226,7 @@ export const PaymentsPage: React.FC = () => {
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3 text-center">Status</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -240,6 +274,20 @@ export const PaymentsPage: React.FC = () => {
                         {p.status}
                       </Badge>
                     </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        {p.status === 'SUCCESS' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReversePayment(p)}
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs py-1 px-2"
+                          >
+                            Reverse
+                          </Button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
