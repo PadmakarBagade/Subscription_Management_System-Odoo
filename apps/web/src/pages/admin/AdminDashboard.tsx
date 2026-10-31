@@ -25,6 +25,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from 'recharts';
 import { apiRequest, downloadPdf } from '../../services/api';
 import { StatCard } from '../../components/common/StatCard';
@@ -34,14 +35,23 @@ import { Button } from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
 import { OperationalDashboard } from './OperationalDashboard';
 
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#a78bfa'];
+
+// Format month string "2024-01" → "Jan '24"
+function formatMonth(m: string): string {
+  if (!m) return m;
+  const [year, mon] = m.split('-');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const idx = parseInt(mon, 10) - 1;
+  return `${months[idx] || mon} '${year?.slice(2)}`;
+}
+
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  if (user?.role === 'STAFF') {
-    return <OperationalDashboard />;
-  }
-
+  // ── ALL hooks must come BEFORE any conditional return ──
   const [metrics, setMetrics] = useState<any>(null);
   const [monthlyCollections, setMonthlyCollections] = useState<any[]>([]);
   const [statusDistribution, setStatusDistribution] = useState<any>(null);
@@ -51,6 +61,12 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Staff users see the operational dashboard — skip heavy fetch
+    if (user?.role === 'STAFF') {
+      setLoading(false);
+      return;
+    }
+
     async function loadDashboard() {
       try {
         const [mRes, revRes, distRes, planRes, subRes, invRes] = await Promise.all([
@@ -75,7 +91,12 @@ export const AdminDashboard: React.FC = () => {
       }
     }
     loadDashboard();
-  }, []);
+  }, [user?.role]);
+
+  // Conditional renders AFTER all hooks
+  if (user?.role === 'STAFF') {
+    return <OperationalDashboard />;
+  }
 
   if (loading) {
     return (
@@ -85,7 +106,24 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#64748b'];
+  // Prepare chart data with human-readable month labels
+  const chartCollections = monthlyCollections.map((p) => ({
+    ...p,
+    month: formatMonth(p.month),
+    amount: Number(p.amount) || 0,
+  }));
+
+  const invoiceDistribution = statusDistribution?.invoices?.map((s: any) => ({
+    name: s.status,
+    value: Number(s.count) || 0,
+    amount: Number(s.totalAmount) || 0,
+  })) || [];
+
+  const planChartData = revenueByPlan.map((p: any) => ({
+    ...p,
+    estimatedRevenue: Number(p.estimatedRevenue) || 0,
+    activeCount: Number(p.activeCount) || 0,
+  }));
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -120,7 +158,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards Row (Section 21) */}
+      {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Total Customers"
@@ -140,7 +178,7 @@ export const AdminDashboard: React.FC = () => {
 
         <StatCard
           title="Total Invoiced"
-          value={`₹${(metrics?.totalInvoiced ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+          value={`₹${Number(metrics?.totalInvoiced ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
           subtitle="All issued invoices"
           icon={<Receipt className="w-5 h-5" />}
           color="slate"
@@ -148,7 +186,7 @@ export const AdminDashboard: React.FC = () => {
 
         <StatCard
           title="Collected Revenue"
-          value={`₹${(metrics?.totalCollected ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+          value={`₹${Number(metrics?.totalCollected ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
           subtitle="Verified payments"
           icon={<CreditCard className="w-5 h-5" />}
           color="emerald"
@@ -156,7 +194,7 @@ export const AdminDashboard: React.FC = () => {
 
         <StatCard
           title="Outstanding Balance"
-          value={`₹${(metrics?.totalOutstanding ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+          value={`₹${Number(metrics?.totalOutstanding ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
           subtitle="Total open receivables"
           icon={<Receipt className="w-5 h-5" />}
           color="amber"
@@ -165,7 +203,7 @@ export const AdminDashboard: React.FC = () => {
         <StatCard
           title="Overdue Invoices"
           value={metrics?.overdueInvoicesCount ?? 0}
-          subtitle={`₹${(metrics?.totalOverdueAmount ?? 0).toLocaleString('en-IN')} overdue`}
+          subtitle={`₹${Number(metrics?.totalOverdueAmount ?? 0).toLocaleString('en-IN')} overdue`}
           icon={<AlertTriangle className="w-5 h-5" />}
           color="rose"
         />
@@ -181,8 +219,8 @@ export const AdminDashboard: React.FC = () => {
         <StatCard
           title="Collection Rate"
           value={`${
-            metrics?.totalInvoiced > 0
-              ? Math.round((metrics.totalCollected / metrics.totalInvoiced) * 100)
+            (metrics?.totalInvoiced ?? 0) > 0
+              ? Math.round((Number(metrics.totalCollected) / Number(metrics.totalInvoiced)) * 100)
               : 100
           }%`}
           subtitle="Invoiced vs Collected"
@@ -195,44 +233,62 @@ export const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly Collections Trend */}
         <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-base font-bold text-slate-900">Monthly Collections Trend</h3>
-              <p className="text-xs text-slate-500">Verified payment volume over time</p>
+              <p className="text-xs text-slate-500">Verified payment volume over the last 12 months</p>
             </div>
-            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
               Actual Cash Flow
             </span>
           </div>
 
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyCollections}>
-                <defs>
-                  <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  tickFormatter={(val) => `₹${val}`}
-                />
-                <Tooltip
-                  formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN')}`, 'Collected']}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="amount"
-                  stroke="#4f46e5"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorAmount)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartCollections.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <TrendingUp className="w-8 h-8 text-slate-300" />
+                <p className="text-sm">No payment data for the last 12 months</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartCollections} margin={{ top: 5, right: 10, bottom: 0, left: 10 }}>
+                  <defs>
+                    <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val) => `₹${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`}
+                    width={60}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                    formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 'Collected']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorAmount)"
+                    dot={{ fill: '#4f46e5', strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5, strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
@@ -244,28 +300,39 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="h-64 w-full flex items-center justify-center">
-            {statusDistribution?.invoices?.length > 0 ? (
+            {invoiceDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={statusDistribution.invoices}
-                    dataKey="count"
-                    nameKey="status"
+                    data={invoiceDistribution}
+                    dataKey="value"
+                    nameKey="name"
                     cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
+                    cy="45%"
+                    innerRadius={48}
+                    outerRadius={75}
                     paddingAngle={3}
                   >
-                    {statusDistribution.invoices.map((_: any, index: number) => (
+                    {invoiceDistribution.map((_: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                    formatter={(val: any, name: any) => [val, name]}
+                  />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-xs text-slate-400">No invoice records yet</div>
+              <div className="text-xs text-slate-400 flex flex-col items-center gap-2">
+                <Receipt className="w-8 h-8 text-slate-300" />
+                <span>No invoice records yet</span>
+              </div>
             )}
           </div>
         </Card>
@@ -273,7 +340,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Revenue by Plan Bar Chart */}
       <Card>
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-5 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-slate-900">Revenue Contribution by Plan</h3>
             <p className="text-xs text-slate-500">Estimated recurring revenue from active subscriptions</p>
@@ -288,20 +355,36 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={revenueByPlan}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="planName" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#64748b' }}
-                tickFormatter={(val) => `₹${val}`}
-              />
-              <Tooltip
-                formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN')}`, 'Revenue']}
-              />
-              <Bar dataKey="estimatedRevenue" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {planChartData.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+              <BarChart className="w-8 h-8 text-slate-300" />
+              <p className="text-sm">No plan revenue data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={planChartData} margin={{ top: 5, right: 10, bottom: 0, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="planName"
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => `₹${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`}
+                  width={60}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 'Est. Revenue']}
+                />
+                <Bar dataKey="estimatedRevenue" fill="#6366f1" radius={[5, 5, 0, 0]} maxBarSize={60} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </Card>
 
@@ -328,24 +411,36 @@ export const AdminDashboard: React.FC = () => {
                   <th className="py-2.5 px-4">Sub #</th>
                   <th className="py-2.5 px-4">Customer</th>
                   <th className="py-2.5 px-4">Plan</th>
+                  <th className="py-2.5 px-4 text-right">Amount</th>
                   <th className="py-2.5 px-4 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {recentSubscriptions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-slate-50">
-                    <td className="py-2.5 px-4 font-mono font-medium text-slate-900">
-                      {sub.subscriptionNumber}
-                    </td>
-                    <td className="py-2.5 px-4 font-medium">
-                      {sub.customer?.companyName || sub.customer?.user?.name}
-                    </td>
-                    <td className="py-2.5 px-4 text-slate-600">{sub.plan?.name}</td>
-                    <td className="py-2.5 px-4 text-center">
-                      <Badge status={sub.status} />
+                {recentSubscriptions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                      No subscriptions yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentSubscriptions.map((sub) => (
+                    <tr key={sub.id} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-4 font-mono font-medium text-slate-900">
+                        {sub.subscriptionNumber}
+                      </td>
+                      <td className="py-2.5 px-4 font-medium">
+                        {sub.customer?.companyName || sub.customer?.user?.name}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-600">{sub.plan?.name}</td>
+                      <td className="py-2.5 px-4 text-right font-medium text-slate-800">
+                        ₹{Number(sub.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-2.5 px-4 text-center">
+                        <Badge status={sub.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -395,7 +490,7 @@ export const AdminDashboard: React.FC = () => {
                         {inv.customer?.companyName || inv.customer?.user?.name}
                       </td>
                       <td className="py-2.5 px-4 text-right font-bold text-rose-600">
-                        ₹{Number(inv.balance).toFixed(2)}
+                        ₹{Number(inv.balance || 0).toFixed(2)}
                       </td>
                       <td className="py-2.5 px-4 text-right">
                         <button

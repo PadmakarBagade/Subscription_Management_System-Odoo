@@ -96,10 +96,27 @@ export class ReportingService {
       ORDER BY month ASC
     `;
 
-    return rawPayments.map((p) => ({
-      month: p.month,
-      amount: parseFloat(p.amount) || 0,
-    }));
+    // Map existing payments
+    const paymentMap = new Map<string, number>();
+    for (const p of rawPayments) {
+      paymentMap.set(p.month, parseFloat(p.amount) || 0);
+    }
+
+    // Always generate a continuous 12-month array ending at current month
+    const result: Array<{ month: string; amount: number }> = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const key = `${yyyy}-${mm}`;
+      result.push({
+        month: key,
+        amount: paymentMap.get(key) || 0,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -143,11 +160,25 @@ export class ReportingService {
           COALESCE(SUM(s."totalAmount"), 0)::float as "estimatedRevenue"
         FROM "Plan" p
         LEFT JOIN "Subscription" s ON s."planId" = p."id" AND s."status" = 'ACTIVE'
+        WHERE p."isActive" = true
         GROUP BY p."id", p."name"
         ORDER BY "estimatedRevenue" DESC
+        LIMIT 6
       `;
 
-    return plansWithRevenue;
+    // Deduplicate plan names if duplicates exist in catalog
+    const planMap = new Map<string, { planName: string; activeCount: number; estimatedRevenue: number }>();
+    for (const p of plansWithRevenue) {
+      if (planMap.has(p.planName)) {
+        const existing = planMap.get(p.planName)!;
+        existing.activeCount += p.activeCount;
+        existing.estimatedRevenue += p.estimatedRevenue;
+      } else {
+        planMap.set(p.planName, { ...p });
+      }
+    }
+
+    return Array.from(planMap.values());
   }
 
   /**

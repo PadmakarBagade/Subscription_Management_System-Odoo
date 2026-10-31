@@ -189,6 +189,14 @@ export const App: React.FC = () => {
                 </RoleGuard>
               }
             />
+            <Route
+              path="staff"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <UsersPage />
+                </RoleGuard>
+              }
+            />
             <Route path="taxes" element={<TaxesPage />} />
             <Route path="discounts" element={<DiscountsPage />} />
             <Route
@@ -221,6 +229,7 @@ export const App: React.FC = () => {
 
           {/* Top-level aliases for direct URL typing */}
           <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+          <Route path="/staff" element={<Navigate to="/admin/users" replace />} />
           <Route path="/audit" element={<Navigate to="/admin/audit-logs" replace />} />
           <Route path="/billing-health" element={<Navigate to="/admin/billing-jobs" replace />} />
 

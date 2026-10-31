@@ -19,7 +19,29 @@ router.get('/', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Respons
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 10));
     const search = (req.query.search as string || '').trim();
+    const hasBalance = req.query.hasBalance === 'true';
+    const sortBy = (req.query.sortBy as string || 'default');
     const skip = (page - 1) * limit;
+
+    // 1. Calculate overall receivables in system
+    const totalReceivablesAgg = await prisma.invoice.aggregate({
+      where: {
+        status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+      },
+      _sum: { balance: true },
+    });
+    const totalReceivables = Number(totalReceivablesAgg._sum.balance || 0);
+
+    // 2. Fetch all customers with outstanding invoices
+    const allBalances = await prisma.invoice.groupBy({
+      by: ['customerId'],
+      where: {
+        status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+      },
+      _sum: { balance: true },
+    });
+    const globalBalanceMap = new Map(allBalances.map((b) => [b.customerId, Number(b._sum.balance || 0)]));
+    const customerIdsWithBalance = Array.from(globalBalanceMap.keys()).filter(id => (globalBalanceMap.get(id) || 0) > 0);
 
     const where: any = {};
     if (search) {
@@ -31,13 +53,25 @@ router.get('/', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Respons
       ];
     }
 
+    if (hasBalance) {
+      where.id = { in: customerIdsWithBalance };
+    }
+
+    // Determine ordering: if sortBy is 'balance' or 'default', prioritize customers with invoices/subscriptions
+    let orderBy: any = [{ subscriptions: { _count: 'desc' } }, { createdAt: 'desc' }];
+    if (sortBy === 'name') {
+      orderBy = [{ user: { name: 'asc' } }];
+    } else if (sortBy === 'newest') {
+      orderBy = [{ createdAt: 'desc' }];
+    }
+
     const [total, customers] = await Promise.all([
       prisma.customerProfile.count({ where }),
       prisma.customerProfile.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           user: { select: { id: true, name: true, email: true, status: true, lastLoginAt: true } },
           _count: {
@@ -51,23 +85,15 @@ router.get('/', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Respons
       }),
     ]);
 
-    // Calculate outstanding balance for each customer
-    const customerIds = customers.map((c) => c.id);
-    const balances = await prisma.invoice.groupBy({
-      by: ['customerId'],
-      where: {
-        customerId: { in: customerIds },
-        status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
-      },
-      _sum: { balance: true },
-    });
-
-    const balanceMap = new Map(balances.map((b) => [b.customerId, Number(b._sum.balance || 0)]));
-
     const enrichedCustomers = customers.map((c) => ({
       ...c,
-      outstandingBalance: balanceMap.get(c.id) || 0,
+      outstandingBalance: globalBalanceMap.get(c.id) || 0,
     }));
+
+    // If sorting by balance, sort the current page slice or provide sorted list
+    if (sortBy === 'balance' || sortBy === 'default') {
+      enrichedCustomers.sort((a, b) => b.outstandingBalance - a.outstandingBalance);
+    }
 
     res.json({
       success: true,
@@ -77,6 +103,8 @@ router.get('/', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Respons
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        totalReceivables,
+        customersWithBalanceCount: customerIdsWithBalance.length,
       },
     });
   } catch (error) {
@@ -176,9 +204,22 @@ router.get(
         throw new AppError('Customer profile not found', 404);
       }
 
+      // Calculate customer's outstanding balance
+      const invSum = await prisma.invoice.aggregate({
+        where: {
+          customerId: customer.id,
+          status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+        },
+        _sum: { balance: true },
+      });
+      const outstandingBalance = Number(invSum._sum.balance || 0);
+
       res.json({
         success: true,
-        data: customer,
+        data: {
+          ...customer,
+          outstandingBalance,
+        },
       });
     } catch (error) {
       next(error);

@@ -34,6 +34,50 @@ export const app = express();
 // Security headers
 app.use(helmet());
 
+// ── Fix Prisma Decimal / BigInt JSON serialization ─────────────────────────
+// Prisma Decimal objects don't serialise to plain numbers by default.
+// We override res.json to convert them (and BigInt) before sending.
+app.use((_req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (body: any) => {
+    return originalJson(JSON.parse(JSON.stringify(body, (_key, value) => {
+      // Prisma Decimal: has .toNumber() method
+      if (value !== null && typeof value === 'object') {
+        if (typeof value.toNumber === 'function') {
+          return value.toNumber();
+        }
+        if (value.s !== undefined && value.d !== undefined && Array.isArray(value.d)) {
+          try {
+            const digits = value.d.join('');
+            const exp = value.e;
+            let numStr = digits;
+            if (exp !== undefined) {
+              if (exp >= digits.length - 1) {
+                numStr = digits + '0'.repeat(exp - digits.length + 1);
+              } else if (exp >= 0) {
+                numStr = digits.slice(0, exp + 1) + '.' + digits.slice(exp + 1);
+              } else {
+                numStr = '0.' + '0'.repeat(-exp - 1) + digits;
+              }
+            }
+            const parsed = Number((value.s < 0 ? '-' : '') + numStr);
+            if (!isNaN(parsed)) return parsed;
+          } catch {
+            // fallback
+          }
+        }
+      }
+      // BigInt
+      if (typeof value === 'bigint') {
+        return Number(value);
+      }
+      return value;
+    })));
+  };
+  next();
+});
+
+
 // CORS configuration
 app.use(
   cors({

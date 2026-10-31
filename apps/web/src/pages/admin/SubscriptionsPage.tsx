@@ -118,17 +118,25 @@ export const SubscriptionsPage: React.FC = () => {
     setActionModal((prev) => ({ ...prev, loading: true }));
 
     try {
-      if (toStatus) {
-        // Transition endpoint
+      if (action === 'renew') {
+        await apiRequest(`/subscriptions/${subscription.id}/renew`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: note || 'Authorized renewal cycle' }),
+        });
+      } else if (toStatus === 'PAUSED' || action === 'pause') {
+        await apiRequest(`/subscriptions/${subscription.id}/pause`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: note || 'Subscription temporarily paused' }),
+        });
+      } else if (toStatus === 'CLOSED' || action === 'cancel') {
+        await apiRequest(`/subscriptions/${subscription.id}/cancel`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: note || 'Subscription contract terminated' }),
+        });
+      } else if (toStatus) {
         await apiRequest(`/subscriptions/${subscription.id}/transition`, {
           method: 'POST',
           body: JSON.stringify({ toStatus, note }),
-        });
-      } else if (action) {
-        // Legacy action endpoint (pause, resume, renew, cancel)
-        await apiRequest(`/subscriptions/${subscription.id}/${action}`, {
-          method: 'POST',
-          body: JSON.stringify({ reason: note }),
         });
       }
 
@@ -141,9 +149,12 @@ export const SubscriptionsPage: React.FC = () => {
         loading: false,
       });
 
+      // Also close detail modal if open
+      setDetailModal({ isOpen: false, subscription: null, loading: false });
+
       fetchSubscriptions();
     } catch (err: any) {
-      alert(`Action failed: ${err.message || 'Error'}`);
+      alert(`Action failed: ${err.message || 'Error executing action'}`);
       setActionModal((prev) => ({ ...prev, loading: false }));
     }
   };
@@ -298,22 +309,23 @@ export const SubscriptionsPage: React.FC = () => {
                       )}
 
                       {sub.status === 'ACTIVE' && (
-                        <>
+                        <div className="inline-flex items-center gap-1.5">
                           <button
                             onClick={() =>
                               setActionModal({
                                 isOpen: true,
-                                action: null,
+                                action: 'pause',
                                 toStatus: 'PAUSED',
                                 subscription: sub,
                                 note: '',
                                 loading: false,
                               })
                             }
-                            className="p-1 rounded text-amber-600 hover:bg-amber-50"
-                            title="Pause Subscription"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors shadow-2xs"
+                            title="Pause Subscription recurring billing"
                           >
-                            <Pause className="w-3.5 h-3.5" />
+                            <Pause className="w-3 h-3 text-amber-600" />
+                            <span>Pause</span>
                           </button>
                           <button
                             onClick={() =>
@@ -326,28 +338,29 @@ export const SubscriptionsPage: React.FC = () => {
                                 loading: false,
                               })
                             }
-                            className="p-1 rounded text-indigo-600 hover:bg-indigo-50"
-                            title="Renew Cycle"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors shadow-2xs"
+                            title="Renew Subscription cycle"
                           >
-                            <RefreshCw className="w-3.5 h-3.5" />
+                            <RefreshCw className="w-3 h-3 text-indigo-600" />
+                            <span>Renew</span>
                           </button>
                           <button
                             onClick={() =>
                               setActionModal({
                                 isOpen: true,
-                                action: null,
+                                action: 'cancel',
                                 toStatus: 'CLOSED',
                                 subscription: sub,
                                 note: '',
                                 loading: false,
                               })
                             }
-                            className="p-1 rounded text-rose-600 hover:bg-rose-50"
-                            title="Close Subscription"
+                            className="p-1 rounded text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+                            title="Close / Cancel Subscription"
                           >
                             <XCircle className="w-3.5 h-3.5" />
                           </button>
-                        </>
+                        </div>
                       )}
 
                       {sub.status === 'PAUSED' && (
@@ -532,11 +545,74 @@ export const SubscriptionsPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Lifecycle Actions inside Detail Modal */}
+            {detailModal.subscription.status === 'ACTIVE' && (
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Contract Lifecycle Actions:</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setActionModal({
+                        isOpen: true,
+                        action: 'pause',
+                        toStatus: 'PAUSED',
+                        subscription: detailModal.subscription,
+                        note: '',
+                        loading: false,
+                      })
+                    }
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                    icon={<Pause className="w-3.5 h-3.5" />}
+                  >
+                    Pause Subscription
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setActionModal({
+                        isOpen: true,
+                        action: 'renew',
+                        toStatus: null,
+                        subscription: detailModal.subscription,
+                        note: '',
+                        loading: false,
+                      })
+                    }
+                    className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+                    icon={<RefreshCw className="w-3.5 h-3.5" />}
+                  >
+                    Renew Cycle
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setActionModal({
+                        isOpen: true,
+                        action: 'cancel',
+                        toStatus: 'CLOSED',
+                        subscription: detailModal.subscription,
+                        note: '',
+                        loading: false,
+                      })
+                    }
+                    className="text-rose-700 border-rose-300 hover:bg-rose-50"
+                    icon={<XCircle className="w-3.5 h-3.5" />}
+                  >
+                    Close Contract
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
       </Modal>
 
-      {/* Confirmation & Lifecycle Action Modal */}
+      {/* Confirmation & Lifecycle Action Modal (Pause, Renew, Close) */}
       <Modal
         isOpen={actionModal.isOpen}
         onClose={() =>
@@ -549,29 +625,81 @@ export const SubscriptionsPage: React.FC = () => {
             loading: false,
           })
         }
-        title={`Confirm ${actionModal.toStatus || actionModal.action?.toUpperCase()}`}
+        title={
+          actionModal.action === 'renew'
+            ? 'Renew Subscription Cycle'
+            : actionModal.toStatus === 'PAUSED' || actionModal.action === 'pause'
+            ? 'Pause Subscription Contract'
+            : actionModal.toStatus === 'CLOSED' || actionModal.action === 'cancel'
+            ? 'Close Subscription Contract'
+            : `Transition Subscription to ${actionModal.toStatus}`
+        }
+        maxWidth="md"
       >
         <div className="space-y-4 text-xs text-slate-700">
-          <p>
-            Are you sure you want to transition subscription{' '}
-            <strong>{actionModal.subscription?.subscriptionNumber}</strong> to{' '}
-            <strong>{actionModal.toStatus || actionModal.action?.toUpperCase()}</strong>?
-          </p>
+          {/* Subscription Context Card */}
+          {actionModal.subscription && (
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-slate-900 text-sm">
+                  {actionModal.subscription.subscriptionNumber}
+                </span>
+                <Badge status={actionModal.subscription.status} />
+              </div>
+              <p className="text-slate-600">
+                Plan: <strong className="text-slate-900">{actionModal.subscription.plan?.name}</strong> (₹
+                {Number(actionModal.subscription.totalAmount).toFixed(2)} /{' '}
+                {actionModal.subscription.billingFrequency})
+              </p>
+              <p className="text-slate-500 text-[11px]">
+                Customer: {actionModal.subscription.customer?.companyName || actionModal.subscription.customer?.user?.name}
+              </p>
+            </div>
+          )}
+
+          {/* Descriptive Notice */}
+          <div
+            className={`p-3 rounded-lg border text-xs leading-relaxed ${
+              actionModal.action === 'renew'
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
+                : actionModal.toStatus === 'PAUSED' || actionModal.action === 'pause'
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : 'bg-rose-50 border-rose-200 text-rose-900'
+            }`}
+          >
+            {actionModal.action === 'renew' ? (
+              <p>
+                <strong>Cycle Renewal:</strong> This contract will be renewed for its next billing cycle (
+                {actionModal.subscription?.billingFrequency}). Next billing date will automatically advance and
+                cycle records will be updated.
+              </p>
+            ) : actionModal.toStatus === 'PAUSED' || actionModal.action === 'pause' ? (
+              <p>
+                <strong>Pause Subscription:</strong> Recurring billing will be temporarily halted. No automated invoices
+                will generate while paused. You can resume this subscription at any time.
+              </p>
+            ) : (
+              <p>
+                <strong>Close Subscription:</strong> Contract will be permanently closed and transitioned to CLOSED. No
+                further billing cycles or renewals will occur.
+              </p>
+            )}
+          </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
-              Audit Note / Reason
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Audit Note / Reason for Action
             </label>
             <textarea
               rows={2}
               value={actionModal.note}
               onChange={(e) => setActionModal({ ...actionModal, note: e.target.value })}
-              placeholder="Enter reason for audit logs..."
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. Customer requested temporary pause, or authorized early renewal..."
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <Button
               variant="outline"
               size="sm"
@@ -585,16 +713,32 @@ export const SubscriptionsPage: React.FC = () => {
                   loading: false,
                 })
               }
+              disabled={actionModal.loading}
             >
               Cancel
             </Button>
             <Button
-              variant={actionModal.toStatus === 'CLOSED' ? 'danger' : 'primary'}
+              variant={
+                actionModal.toStatus === 'CLOSED' || actionModal.action === 'cancel'
+                  ? 'danger'
+                  : 'primary'
+              }
               size="sm"
               loading={actionModal.loading}
               onClick={handleExecuteModalAction}
+              className={
+                actionModal.action === 'renew'
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  : actionModal.toStatus === 'PAUSED' || actionModal.action === 'pause'
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : 'bg-rose-600 hover:bg-rose-700 text-white'
+              }
             >
-              Confirm Transition
+              {actionModal.action === 'renew'
+                ? 'Confirm Renewal'
+                : actionModal.toStatus === 'PAUSED' || actionModal.action === 'pause'
+                ? 'Confirm Pause'
+                : 'Confirm Closure'}
             </Button>
           </div>
         </div>
