@@ -238,4 +238,68 @@ router.delete('/:id', requireRole('ADMIN'), async (req: Request, res: Response, 
   }
 });
 
+// -------------------------------------------------------------
+// POST /api/v1/products/:id/variants (Add/Update variant) - ADMIN only
+// -------------------------------------------------------------
+router.post('/:id/variants', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { name, value, priceAdjustment, isActive } = req.body;
+    if (!name || !value) {
+      throw new AppError('Variant name and value are required', 400);
+    }
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) throw new AppError('Product not found', 404);
+
+    const variant = await prisma.productVariant.upsert({
+      where: {
+        productId_name_value: {
+          productId: id,
+          name,
+          value,
+        },
+      },
+      update: {
+        priceAdjustment: priceAdjustment !== undefined ? Number(priceAdjustment) : 0,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      },
+      create: {
+        productId: id,
+        name,
+        value,
+        priceAdjustment: priceAdjustment !== undefined ? Number(priceAdjustment) : 0,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      },
+    });
+
+    await AuditService.log({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      action: 'PRODUCT_VARIANT_CREATED',
+      entityType: 'ProductVariant',
+      entityId: variant.id,
+      afterState: variant,
+    });
+
+    res.status(201).json({ success: true, message: 'Variant saved successfully', data: variant });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
+// DELETE /api/v1/products/:id/variants/:variantId (Delete variant) - ADMIN only
+// -------------------------------------------------------------
+router.delete('/:id/variants/:variantId', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, variantId } = req.params;
+    await prisma.productVariant.delete({
+      where: { id: variantId, productId: id },
+    });
+    res.json({ success: true, message: 'Variant deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

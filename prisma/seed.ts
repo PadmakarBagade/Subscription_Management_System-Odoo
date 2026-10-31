@@ -206,6 +206,64 @@ async function main() {
     },
   });
 
+  // 4b. Create Quotation Templates
+  console.log('-> Creating Quotation Templates...');
+  const odooVariantForTemplate = erpProduct.variants.find((v) => v.value.includes('Odoo Brand'));
+
+  const existingTemplateOdoo = await prisma.quotationTemplate.findFirst({
+    where: { name: 'Odoo Cloud ERP Suite (30 Days)' },
+  });
+  if (!existingTemplateOdoo) {
+    await prisma.quotationTemplate.create({
+      data: {
+        name: 'Odoo Cloud ERP Suite (30 Days)',
+        description: 'Pre-configured enterprise quotation with Odoo Brand Connector and 30-day price guarantee.',
+        defaultPlanId: businessPlan.id,
+        validityDays: 30,
+        isActive: true,
+        lines: {
+          create: [
+            {
+              productId: erpProduct.id,
+              variantId: odooVariantForTemplate?.id,
+              quantity: 2,
+              unitPrice: 2560.0,
+            },
+            {
+              productId: billingEngineProduct.id,
+              quantity: 1,
+              unitPrice: 1200.0,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  const existingTemplateStarter = await prisma.quotationTemplate.findFirst({
+    where: { name: 'SaaS Starter Offer (14 Days)' },
+  });
+  if (!existingTemplateStarter) {
+    await prisma.quotationTemplate.create({
+      data: {
+        name: 'SaaS Starter Offer (14 Days)',
+        description: 'Standard fast-track quotation for startups valid for 14 days.',
+        defaultPlanId: starterPlan.id,
+        validityDays: 14,
+        isActive: true,
+        lines: {
+          create: [
+            {
+              productId: erpProduct.id,
+              quantity: 1,
+              unitPrice: 2000.0,
+            },
+          ],
+        },
+      },
+    });
+  }
+
   // 5. Create Users (Admin, Staff, Customers)
   console.log('-> Creating Users...');
   const adminPasswordHash = await bcrypt.hash('Admin@Brightloop2026!', 12);
@@ -485,6 +543,196 @@ async function main() {
             taxRate: 0.18,
             taxAmount: 360.0,
           },
+        ],
+      },
+    },
+  });
+
+  // Additional Subscriptions in Diverse Lifecycle States
+  console.log('-> Creating Subscriptions across complete lifecycle states (Draft, Quotation, Confirmed, Paused, Closed)...');
+  
+  // 3. Draft Subscription
+  await prisma.subscription.upsert({
+    where: { subscriptionNumber: 'SUB-2026-003' },
+    update: {},
+    create: {
+      subscriptionNumber: 'SUB-2026-003',
+      customerId: userCustomer1.customerProfile!.id,
+      planId: starterPlan.id,
+      status: 'DRAFT',
+      startDate: now,
+      billingFrequency: 'MONTHLY',
+      paymentTermsDays: 15,
+      subtotal: 2000.0,
+      taxAmount: 360.0,
+      discountAmount: 0.0,
+      totalAmount: 2360.0,
+      lines: {
+        create: [
+          {
+            productId: erpProduct.id,
+            quantity: 1,
+            unitPrice: 2000.0,
+            subtotal: 2000.0,
+            totalAmount: 2000.0,
+          },
+        ],
+      },
+      history: {
+        create: [
+          { toStatus: 'DRAFT', action: 'CREATED', reason: 'Initial draft quote preparation' },
+        ],
+      },
+    },
+  });
+
+  // 4. Quotation Subscription (Offered to customer)
+  await prisma.subscription.upsert({
+    where: { subscriptionNumber: 'SUB-2026-004' },
+    update: {},
+    create: {
+      subscriptionNumber: 'SUB-2026-004',
+      customerId: userCustomer2.customerProfile!.id,
+      planId: businessPlan.id,
+      status: 'QUOTATION',
+      startDate: now,
+      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      billingFrequency: 'MONTHLY',
+      paymentTermsDays: 30,
+      subtotal: 3500.0,
+      taxAmount: 630.0,
+      discountAmount: 0.0,
+      totalAmount: 4130.0,
+      lines: {
+        create: [
+          {
+            productId: erpProduct.id,
+            variantId: odooVariant?.id,
+            quantity: 1,
+            unitPrice: 2560.0,
+            subtotal: 2560.0,
+            totalAmount: 2560.0,
+          },
+        ],
+      },
+      history: {
+        create: [
+          { fromStatus: 'DRAFT', toStatus: 'QUOTATION', action: 'SENT_QUOTATION', reason: 'Quote presented to prospect' },
+        ],
+      },
+    },
+  });
+
+  // 5. Confirmed Subscription (Awaiting service activation)
+  await prisma.subscription.upsert({
+    where: { subscriptionNumber: 'SUB-2026-005' },
+    update: {},
+    create: {
+      subscriptionNumber: 'SUB-2026-005',
+      customerId: userCustomer1.customerProfile!.id,
+      planId: businessPlan.id,
+      status: 'CONFIRMED',
+      startDate: now,
+      billingFrequency: 'MONTHLY',
+      paymentTermsDays: 0,
+      subtotal: 3500.0,
+      taxAmount: 630.0,
+      discountAmount: 0.0,
+      totalAmount: 4130.0,
+      lines: {
+        create: [
+          {
+            productId: erpProduct.id,
+            quantity: 1,
+            unitPrice: 2000.0,
+            subtotal: 2000.0,
+            totalAmount: 2000.0,
+          },
+          {
+            productId: billingEngineProduct.id,
+            quantity: 1,
+            unitPrice: 1500.0,
+            subtotal: 1500.0,
+            totalAmount: 1500.0,
+          },
+        ],
+      },
+      history: {
+        create: [
+          { fromStatus: 'QUOTATION', toStatus: 'CONFIRMED', action: 'CUSTOMER_CONFIRMED', reason: 'Quote confirmed by customer' },
+        ],
+      },
+    },
+  });
+
+  // 6. Paused Subscription
+  await prisma.subscription.upsert({
+    where: { subscriptionNumber: 'SUB-2026-006' },
+    update: {},
+    create: {
+      subscriptionNumber: 'SUB-2026-006',
+      customerId: userCustomer2.customerProfile!.id,
+      planId: starterPlan.id,
+      status: 'PAUSED',
+      startDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+      pausedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      billingFrequency: 'MONTHLY',
+      paymentTermsDays: 15,
+      subtotal: 2000.0,
+      taxAmount: 360.0,
+      discountAmount: 0.0,
+      totalAmount: 2360.0,
+      lines: {
+        create: [
+          {
+            productId: erpProduct.id,
+            quantity: 1,
+            unitPrice: 2000.0,
+            subtotal: 2000.0,
+            totalAmount: 2000.0,
+          },
+        ],
+      },
+      history: {
+        create: [
+          { fromStatus: 'ACTIVE', toStatus: 'PAUSED', action: 'PAUSED', reason: 'Seasonal maintenance requested by client' },
+        ],
+      },
+    },
+  });
+
+  // 7. Closed Subscription
+  await prisma.subscription.upsert({
+    where: { subscriptionNumber: 'SUB-2026-007' },
+    update: {},
+    create: {
+      subscriptionNumber: 'SUB-2026-007',
+      customerId: userCustomer1.customerProfile!.id,
+      planId: starterPlan.id,
+      status: 'CLOSED',
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+      closedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      cancelReason: 'Plan term completed and auto-closed as per policy',
+      billingFrequency: 'MONTHLY',
+      paymentTermsDays: 0,
+      subtotal: 2000.0,
+      taxAmount: 360.0,
+      discountAmount: 0.0,
+      totalAmount: 2360.0,
+      lines: {
+        create: [
+          {
+            productId: erpProduct.id,
+            quantity: 1,
+            unitPrice: 2000.0,
+            subtotal: 2000.0,
+            totalAmount: 2000.0,
+          },
+        ],
+      },
+      history: {
+        create: [
+          { fromStatus: 'ACTIVE', toStatus: 'CLOSED', action: 'CLOSED', reason: 'Term expired and closed automatically' },
         ],
       },
     },

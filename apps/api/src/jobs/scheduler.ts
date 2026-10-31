@@ -34,6 +34,7 @@ export class JobScheduler {
       try {
         await this.processOverdueInvoices();
         await this.processRenewalReminders();
+        await this.processAutoCloseSubscriptions();
         await this.processExpiredResetTokens();
       } catch (err) {
         logger.error({ err }, 'Error during reminder job execution');
@@ -126,6 +127,60 @@ export class JobScheduler {
       logger.info(
         { subscriptionNumber: sub.subscriptionNumber, nextBillingDate: sub.nextBillingDate },
         'Upcoming subscription renewal detected'
+      );
+    }
+  }
+
+  /**
+   * Automatically closes subscriptions whose expiryDate <= now and whose plan has autoClosePolicy: true.
+   */
+  private static async processAutoCloseSubscriptions() {
+    const now = new Date();
+    const expiredSubs = await prisma.subscription.findMany({
+      where: {
+        status: 'ACTIVE',
+        expiryDate: { lte: now },
+        plan: { autoClosePolicy: true },
+      },
+      include: {
+        customer: { include: { user: true } },
+        plan: true,
+      },
+    });
+
+    for (const sub of expiredSubs) {
+      await prisma.$transaction(async (tx) => {
+        await tx.subscription.update({
+          where: { id: sub.id },
+          data: {
+            status: 'CLOSED',
+            closedAt: now,
+            cancelReason: 'Plan auto-close policy executed on expiry',
+          },
+        });
+        await tx.subscriptionHistory.create({
+          data: {
+            subscriptionId: sub.id,
+            fromStatus: sub.status,
+            toStatus: 'CLOSED',
+            action: 'AUTO_CLOSE_POLICY',
+            reason: 'Plan auto-close policy executed on expiry',
+          },
+        });
+      });
+
+      await AlertService.createAlert({
+        alertType: 'SYSTEM',
+        severity: 'LOW',
+        title: `Subscription auto-closed: ${sub.subscriptionNumber}`,
+        message: `Subscription ${sub.subscriptionNumber} was automatically closed on expiry under plan policy.`,
+        entityType: 'SUBSCRIPTION',
+        entityId: sub.id,
+      });
+
+      logger.info(
+        { subscriptionId: sub.id, subscriptionNumber: sub.subscriptionNumber },
+        'Subscription auto-closed by plan policy'
       );
     }
   }

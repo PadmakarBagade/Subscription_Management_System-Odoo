@@ -27,6 +27,7 @@ import alertRoutes from './routes/alert.routes';
 import aiRoutes from './routes/ai.routes';
 import publicRoutes from './routes/public.routes';
 import userRoutes from './routes/user.routes';
+import quotationTemplateRoutes from './routes/quotation-template.routes';
 
 export const app = express();
 
@@ -98,6 +99,7 @@ app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/quotation-templates', quotationTemplateRoutes);
 
 // Centralized error handling
 app.use(errorHandler);

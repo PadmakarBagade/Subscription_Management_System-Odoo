@@ -213,9 +213,8 @@ router.post('/:id/confirm', async (req: Request, res: Response, next: NextFuncti
       throw new AppError('Cannot confirm a cancelled quotation', 400);
     }
 
-    // Transition quotation to CONFIRMED and create a Subscription
-    const subscription = await prisma.$transaction(async (tx) => {
-      await tx.quotation.update({
+    const { updatedQuotation, subscription } = await prisma.$transaction(async (tx) => {
+      const updatedQ = await tx.quotation.update({
         where: { id: quotation.id },
         data: { status: 'CONFIRMED' },
       });
@@ -270,10 +269,12 @@ router.post('/:id/confirm', async (req: Request, res: Response, next: NextFuncti
         },
       });
 
-      return tx.subscription.findUnique({
+      const createdSub = await tx.subscription.findUnique({
         where: { id: sub.id },
         include: { plan: true, lines: true },
       });
+
+      return { updatedQuotation: updatedQ, subscription: createdSub };
     });
 
     await AuditService.log({
@@ -288,7 +289,7 @@ router.post('/:id/confirm', async (req: Request, res: Response, next: NextFuncti
     res.json({
       success: true,
       message: 'Quotation confirmed and subscription generated successfully',
-      data: sanitizeDataForRole({ quotation, subscription }, req.user?.role),
+      data: sanitizeDataForRole({ quotation: updatedQuotation, subscription }, req.user?.role),
     });
   } catch (error) {
     next(error);

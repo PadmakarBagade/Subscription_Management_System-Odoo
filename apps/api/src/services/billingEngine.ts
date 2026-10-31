@@ -57,6 +57,11 @@ export class BillingEngine {
         customer: { include: { user: true } },
         plan: true,
         lines: { include: { product: true, variant: true } },
+        discountUsages: {
+          where: { invoiceId: null },
+          include: { discount: true },
+          take: 5,
+        },
       },
     });
 
@@ -112,14 +117,28 @@ export class BillingEngine {
             productIds.push(line.productId);
           }
 
-          // Evaluate taxes
-          const taxResult = await TaxService.calculateTaxes(subtotal);
+          // Evaluate subscription-linked active discounts
+          let totalDiscountAmount = 0;
+          const activeDiscountUsages = (subscription as any).discountUsages ?? [];
+          for (const du of activeDiscountUsages) {
+            const rule = du.discount;
+            if (!rule || !rule.isActive) continue;
+            if (rule.endDate && rule.endDate < now) continue;
+            if (rule.usageLimit && rule.usageCount >= rule.usageLimit) continue;
+            if (rule.minPurchaseAmount && subtotal < Number(rule.minPurchaseAmount)) continue;
+            const discResult = await DiscountService.calculateDiscount(rule.id, subtotal, productIds);
+            totalDiscountAmount += discResult.discountAmount;
+          }
+          totalDiscountAmount = Math.min(totalDiscountAmount, subtotal);
+          const discountedSubtotal = subtotal - totalDiscountAmount;
 
-          const totalAmount = Number((subtotal + taxResult.totalTaxAmount).toFixed(2));
+          // Evaluate taxes
+          const taxResult = await TaxService.calculateTaxes(discountedSubtotal);
+
+          const totalAmount = Number((discountedSubtotal + taxResult.totalTaxAmount).toFixed(2));
           const dueDate = calculateDueDate(now, subscription.paymentTermsDays || 0);
           const invoiceNumber = `INV-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
 
-          // Create Invoice
           const newInvoice = await tx.invoice.create({
             data: {
               invoiceNumber,
@@ -131,12 +150,12 @@ export class BillingEngine {
               dueDate,
               subtotal,
               taxAmount: taxResult.totalTaxAmount,
-              discountAmount: 0,
+              discountAmount: totalDiscountAmount,
               totalAmount,
               amountPaid: 0,
               balance: totalAmount,
               currency: 'INR',
-              status: 'CONFIRMED', // Recurring invoices are issued in CONFIRMED state
+              status: 'CONFIRMED',
               idempotencyKey: `sub_${subscription.id}_${periodStart.toISOString()}`,
               confirmedAt: now,
             },
@@ -169,6 +188,32 @@ export class BillingEngine {
                 taxAmount: tax.taxAmount,
               },
             });
+          }
+
+          // Apply discount records to invoice
+          for (const du of activeDiscountUsages) {
+            const rule = du.discount;
+            if (!rule?.isActive) continue;
+            const discResult = await DiscountService.calculateDiscount(rule.id, subtotal, productIds);
+            if (discResult.discountAmount <= 0) continue;
+            await tx.invoiceDiscount.create({
+              data: {
+                invoiceId: newInvoice.id,
+                discountRuleId: rule.id,
+                discountCode: rule.code,
+                discountAmount: discResult.discountAmount,
+              },
+            });
+            await tx.discountUsage.create({
+              data: {
+                discountId: rule.id,
+                customerId: subscription.customerId,
+                subscriptionId: subscription.id,
+                invoiceId: newInvoice.id,
+                discountAmount: discResult.discountAmount,
+              },
+            });
+            await tx.discountRule.update({ where: { id: rule.id }, data: { usageCount: { increment: 1 } } });
           }
 
           // Advance nextBillingDate on subscription

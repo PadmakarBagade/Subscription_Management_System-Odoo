@@ -97,4 +97,28 @@ export class DiscountService {
       discountAmount: Number(calculatedDiscountAmount.toFixed(2)),
     };
   }
+
+  /**
+   * Calculates discount amount for a given rule ID and subtotal without throwing exceptions.
+   */
+  static async calculateDiscount(
+    discountRuleId: string,
+    subtotal: number,
+    productIds: string[] = []
+  ): Promise<{ discountAmount: number }> {
+    const discount = await prisma.discountRule.findUnique({
+      where: { id: discountRuleId },
+    });
+    if (!discount || !discount.isActive) {
+      return { discountAmount: 0 };
+    }
+    const ruleValue = Number(discount.value);
+    let amount = 0;
+    if (discount.discountType === 'PERCENTAGE') {
+      amount = Number(((subtotal * ruleValue) / 100).toFixed(2));
+    } else {
+      amount = Math.min(subtotal, ruleValue);
+    }
+    return { discountAmount: Number(amount.toFixed(2)) };
+  }
 }

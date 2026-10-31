@@ -14,6 +14,16 @@ const router = Router();
 
 router.use(authenticate);
 
+// Valid lifecycle transitions
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ['QUOTATION'],
+  QUOTATION: ['CONFIRMED', 'DRAFT'],
+  CONFIRMED: ['ACTIVE'],
+  ACTIVE: ['PAUSED', 'CLOSED'],
+  PAUSED: ['ACTIVE', 'CLOSED'],
+  CLOSED: [],
+};
+
 // -------------------------------------------------------------
 // GET /api/v1/subscriptions (List subscriptions)
 // -------------------------------------------------------------
@@ -503,6 +513,104 @@ router.post('/:id/cancel', async (req: Request, res: Response, next: NextFunctio
       message: 'Subscription closed successfully',
       data: updated,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/v1/subscriptions/:id/transition  (ADMIN | STAFF)
+// Body: { toStatus: string, note?: string }
+// -------------------------------------------------------------
+router.post('/:id/transition', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { toStatus, note } = req.body;
+
+    if (!toStatus) throw new AppError('toStatus is required', 400);
+
+    const sub = await prisma.subscription.findUnique({
+      where: { id },
+      include: { customer: { include: { user: true } }, plan: true, lines: { include: { variant: true, product: true } } },
+    });
+    if (!sub) throw new AppError('Subscription not found', 404);
+
+    const allowed = VALID_TRANSITIONS[sub.status] ?? [];
+    if (!allowed.includes(toStatus)) {
+      throw new AppError(`Cannot transition from ${sub.status} to ${toStatus}. Allowed: ${allowed.join(', ') || 'none'}`, 422);
+    }
+
+    const extra: any = {};
+    if (toStatus === 'ACTIVE' && !sub.startDate) {
+      extra.startDate = new Date();
+      extra.nextBillingDate = calculateNextBillingDate(new Date(), sub.billingFrequency as any);
+    }
+    if (toStatus === 'CLOSED') {
+      extra.closedAt = new Date();
+    }
+    if (toStatus === 'PAUSED') {
+      extra.pausedAt = new Date();
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const s = await tx.subscription.update({
+        where: { id },
+        data: { status: toStatus as any, ...extra },
+        include: { customer: { include: { user: true } }, plan: true, lines: { include: { variant: true, product: true } } },
+      });
+      await AuditService.log({
+        userId: req.user!.id,
+        userEmail: req.user!.email,
+        action: `SUBSCRIPTION_TRANSITION_${sub.status}_TO_${toStatus}`,
+        entityType: 'Subscription',
+        entityId: id,
+        beforeState: { status: sub.status },
+        afterState: { status: toStatus, note },
+      });
+      return s;
+    });
+
+    res.json({ success: true, message: `Subscription transitioned to ${toStatus}`, data: sanitizeDataForRole(updated, req.user!.role) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// -------------------------------------------------------------
+// GET /api/v1/subscriptions/:id  (detailed view with items + invoices)
+// -------------------------------------------------------------
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const sub = await prisma.subscription.findUnique({
+      where: { id },
+      include: {
+        customer: { include: { user: true } },
+        plan: true,
+        lines: {
+          include: {
+            variant: true,
+            product: true,
+          },
+        },
+        invoices: {
+          orderBy: { invoiceDate: 'desc' },
+          take: 20,
+          include: { payments: true },
+        },
+        discountUsages: { include: { discount: true } },
+      },
+    });
+
+    if (!sub) throw new AppError('Subscription not found', 404);
+
+    // Customer scoping
+    if (req.user!.role === 'CUSTOMER' && sub.customerId !== req.user!.customerId) {
+      throw new AppError('Forbidden', 403);
+    }
+
+    res.json({ success: true, data: sanitizeDataForRole(sub, req.user!.role) });
   } catch (error) {
     next(error);
   }

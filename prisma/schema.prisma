@@ -206,23 +206,23 @@ model PasswordResetToken {
 // -------------------------------------------------------------
 
 model Product {
-  id          String      @id @default(uuid())
-  name        String
-  code        String      @unique
-  type        ProductType @default(SERVICE)
-  salesPrice  Decimal     @db.Decimal(12, 2)
-  costPrice   Decimal     @default(0.00) @db.Decimal(12, 2)
-  notes       String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id         String      @id @default(uuid())
+  name       String
+  code       String      @unique
+  type       ProductType @default(SERVICE)
+  salesPrice Decimal     @db.Decimal(12, 2)
+  costPrice  Decimal     @default(0.00) @db.Decimal(12, 2)
+  notes      String?
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
-  variants              ProductVariant[]
-  planProducts          PlanProduct[]
+  variants               ProductVariant[]
+  planProducts           PlanProduct[]
   quotationTemplateLines QuotationTemplateLine[]
-  quotationLines        QuotationLine[]
-  subscriptionLines     SubscriptionLine[]
-  invoiceLines          InvoiceLine[]
+  quotationLines         QuotationLine[]
+  subscriptionLines      SubscriptionLine[]
+  invoiceLines           InvoiceLine[]
 
   @@index([name])
   @@index([code])
@@ -241,9 +241,9 @@ model ProductVariant {
   updatedAt       DateTime @updatedAt
 
   quotationTemplateLines QuotationTemplateLine[]
-  quotationLines        QuotationLine[]
-  subscriptionLines     SubscriptionLine[]
-  invoiceLines          InvoiceLine[]
+  quotationLines         QuotationLine[]
+  subscriptionLines      SubscriptionLine[]
+  invoiceLines           InvoiceLine[]
 
   @@unique([productId, name, value])
   @@index([productId])
@@ -254,22 +254,22 @@ model ProductVariant {
 // -------------------------------------------------------------
 
 model Plan {
-  id                 String           @id @default(uuid())
-  name               String
-  code               String           @unique
-  description        String?
-  billingFrequency   BillingFrequency @default(MONTHLY)
-  basePrice          Decimal          @db.Decimal(12, 2)
-  minimumQuantity    Int              @default(1)
-  availabilityStart  DateTime?
-  availabilityEnd    DateTime?
-  isActive           Boolean          @default(true)
-  autoClosePolicy    Boolean          @default(false)
-  allowEarlyClosure  Boolean          @default(true)
-  allowPause         Boolean          @default(true)
-  allowRenewal       Boolean          @default(true)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                String           @id @default(uuid())
+  name              String
+  code              String           @unique
+  description       String?
+  billingFrequency  BillingFrequency @default(MONTHLY)
+  basePrice         Decimal          @db.Decimal(12, 2)
+  minimumQuantity   Int              @default(1)
+  availabilityStart DateTime?
+  availabilityEnd   DateTime?
+  isActive          Boolean          @default(true)
+  autoClosePolicy   Boolean          @default(false)
+  allowEarlyClosure Boolean          @default(true)
+  allowPause        Boolean          @default(true)
+  allowRenewal      Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   planProducts       PlanProduct[]
   subscriptions      Subscription[]
@@ -299,59 +299,59 @@ model PlanProduct {
 // -------------------------------------------------------------
 
 model QuotationTemplate {
-  id           String   @id @default(uuid())
-  name         String
-  description  String?
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
   defaultPlanId String?
-  defaultPlan  Plan?    @relation(fields: [defaultPlanId], references: [id], onDelete: SetNull)
-  validityDays Int      @default(30)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  defaultPlan   Plan?    @relation(fields: [defaultPlanId], references: [id], onDelete: SetNull)
+  validityDays  Int      @default(30)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  lines        QuotationTemplateLine[]
-  quotations   Quotation[]
+  lines      QuotationTemplateLine[]
+  quotations Quotation[]
 
   @@index([isActive])
 }
 
 model QuotationTemplateLine {
-  id         String          @id @default(uuid())
+  id         String            @id @default(uuid())
   templateId String
   template   QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   productId  String
-  product    Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product    Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
   variantId  String?
-  variant    ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  quantity   Int             @default(1)
-  unitPrice  Decimal         @db.Decimal(12, 2)
-  createdAt  DateTime        @default(now())
+  variant    ProductVariant?   @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  quantity   Int               @default(1)
+  unitPrice  Decimal           @db.Decimal(12, 2)
+  createdAt  DateTime          @default(now())
 
   @@index([templateId])
 }
 
 model Quotation {
-  id              String          @id @default(uuid())
-  quotationNumber String          @unique
+  id              String             @id @default(uuid())
+  quotationNumber String             @unique
   customerId      String
-  customer        CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer        CustomerProfile    @relation(fields: [customerId], references: [id], onDelete: Cascade)
   templateId      String?
   template        QuotationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   planId          String
-  plan            Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
+  plan            Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
   validityDate    DateTime
-  status          QuotationStatus @default(DRAFT)
-  subtotal        Decimal         @db.Decimal(12, 2)
-  taxAmount       Decimal         @default(0.00) @db.Decimal(12, 2)
-  discountAmount  Decimal         @default(0.00) @db.Decimal(12, 2)
-  totalAmount     Decimal         @db.Decimal(12, 2)
+  status          QuotationStatus    @default(DRAFT)
+  subtotal        Decimal            @db.Decimal(12, 2)
+  taxAmount       Decimal            @default(0.00) @db.Decimal(12, 2)
+  discountAmount  Decimal            @default(0.00) @db.Decimal(12, 2)
+  totalAmount     Decimal            @db.Decimal(12, 2)
   notes           String?
   createdById     String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  lines           QuotationLine[]
-  subscriptions   Subscription[]
+  lines         QuotationLine[]
+  subscriptions Subscription[]
 
   @@index([quotationNumber])
   @@index([customerId])
@@ -409,13 +409,13 @@ model Subscription {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  lines              SubscriptionLine[]
-  history            SubscriptionHistory[]
-  invoices           Invoice[]
-  discountUsages     DiscountUsage[]
-  billingRunItems    BillingRunItem[]
-  paymentAttempts    PaymentAttempt[]
-  razorpayOrders     RazorpayOrder[]
+  lines           SubscriptionLine[]
+  history         SubscriptionHistory[]
+  invoices        Invoice[]
+  discountUsages  DiscountUsage[]
+  billingRunItems BillingRunItem[]
+  paymentAttempts PaymentAttempt[]
+  razorpayOrders  RazorpayOrder[]
 
   @@index([subscriptionNumber])
   @@index([customerId])
@@ -530,24 +530,24 @@ model InvoiceLine {
 }
 
 model InvoiceTax {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   invoiceId String
-  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   taxRuleId String?
   taxName   String
-  taxRate   Decimal  @db.Decimal(6, 4)
-  taxAmount Decimal  @db.Decimal(12, 2)
+  taxRate   Decimal @db.Decimal(6, 4)
+  taxAmount Decimal @db.Decimal(12, 2)
 
   @@index([invoiceId])
 }
 
 model InvoiceDiscount {
-  id             String   @id @default(uuid())
+  id             String  @id @default(uuid())
   invoiceId      String
-  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   discountRuleId String?
   discountCode   String
-  discountAmount Decimal  @db.Decimal(12, 2)
+  discountAmount Decimal @db.Decimal(12, 2)
 
   @@index([invoiceId])
 }
@@ -578,23 +578,23 @@ model TaxRule {
 }
 
 model DiscountRule {
-  id                   String        @id @default(uuid())
+  id                   String       @id @default(uuid())
   name                 String
-  code                 String        @unique
-  discountType         DiscountType  @default(PERCENTAGE)
-  value                Decimal       @db.Decimal(12, 2)
-  minPurchaseAmount    Decimal?      @db.Decimal(12, 2)
+  code                 String       @unique
+  discountType         DiscountType @default(PERCENTAGE)
+  value                Decimal      @db.Decimal(12, 2)
+  minPurchaseAmount    Decimal?     @db.Decimal(12, 2)
   minQuantity          Int?
   startDate            DateTime?
   endDate              DateTime?
   usageLimit           Int?
-  usageCount           Int           @default(0)
-  isActive             Boolean       @default(true)
+  usageCount           Int          @default(0)
+  isActive             Boolean      @default(true)
   applicableProductIds Json? // List of product IDs or null for all
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
-  usages               DiscountUsage[]
+  usages DiscountUsage[]
 
   @@index([code])
   @@index([isActive])
@@ -623,25 +623,25 @@ model DiscountUsage {
 // -------------------------------------------------------------
 
 model Payment {
-  id                String        @id @default(uuid())
-  paymentNumber     String        @unique
+  id                String          @id @default(uuid())
+  paymentNumber     String          @unique
   invoiceId         String?
-  invoice           Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoice           Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   customerId        String
   customer          CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  paymentMethod     PaymentMethod @default(RAZORPAY)
-  amount            Decimal       @db.Decimal(12, 2)
-  paymentDate       DateTime      @default(now())
-  status            PaymentStatus @default(SUCCESS)
+  paymentMethod     PaymentMethod   @default(RAZORPAY)
+  amount            Decimal         @db.Decimal(12, 2)
+  paymentDate       DateTime        @default(now())
+  status            PaymentStatus   @default(SUCCESS)
   referenceNumber   String?
   providerPaymentId String? // e.g. pay_xxxxx from Razorpay
   notes             String?
-  isStaffRecorded   Boolean       @default(false)
+  isStaffRecorded   Boolean         @default(false)
   createdById       String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  allocations       InvoicePaymentAllocation[]
+  allocations InvoicePaymentAllocation[]
 
   @@index([paymentNumber])
   @@index([customerId])
@@ -739,7 +739,7 @@ model BillingRun {
   executedBy             String           @default("SCHEDULER")
   createdAt              DateTime         @default(now())
 
-  items                  BillingRunItem[]
+  items BillingRunItem[]
 
   @@index([runNumber])
   @@index([status])

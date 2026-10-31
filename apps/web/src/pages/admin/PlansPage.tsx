@@ -24,6 +24,7 @@ export const PlansPage: React.FC = () => {
   const [billingFrequency, setBillingFrequency] = useState('MONTHLY');
   const [basePrice, setBasePrice] = useState('2500');
   const [minimumQuantity, setMinimumQuantity] = useState('1');
+  const [autoClosePolicy, setAutoClosePolicy] = useState(false);
   const [allowPause, setAllowPause] = useState(true);
   const [allowEarlyClosure, setAllowEarlyClosure] = useState(true);
   const [allowRenewal, setAllowRenewal] = useState(true);
@@ -68,6 +69,7 @@ export const PlansPage: React.FC = () => {
           billingFrequency,
           basePrice: parseFloat(basePrice),
           minimumQuantity: parseInt(minimumQuantity, 10) || 1,
+          autoClosePolicy,
           allowPause,
           allowEarlyClosure,
           allowRenewal,
@@ -165,6 +167,14 @@ export const PlansPage: React.FC = () => {
                   <p className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
                     Plan Policies
                   </p>
+                  <div className="flex items-center gap-2 text-slate-600">
+                    {p.autoClosePolicy ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                    )}
+                    <span>Auto-close when plan ends</span>
+                  </div>
                   <div className="flex items-center gap-2 text-slate-600">
                     {p.allowPause ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
@@ -285,6 +295,15 @@ export const PlansPage: React.FC = () => {
 
           {/* Policy Checkboxes */}
           <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoClosePolicy}
+                onChange={(e) => setAutoClosePolicy(e.target.checked)}
+                className="rounded text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-slate-700 font-medium">Auto-close subscription when plan period ends</span>
+            </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
