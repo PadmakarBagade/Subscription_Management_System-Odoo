@@ -1,0 +1,32 @@
+{
+  "name": "brightloop-subscription-management",
+  "version": "1.0.0",
+  "description": "Brightloop Software — Complete Subscription Management & Billing Platform",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=@brightloop/api\" \"npm run dev --workspace=@brightloop/web\"",
+    "dev:api": "npm run dev --workspace=@brightloop/api",
+    "dev:web": "npm run dev --workspace=@brightloop/web",
+    "build": "npm run build --workspace=@brightloop/shared && npm run build --workspace=@brightloop/api && npm run build --workspace=@brightloop/web",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:push": "npx prisma db push",
+    "prisma:seed": "npx ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/seed.ts",
+    "prisma:studio": "npx prisma studio",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test --workspace=@brightloop/api",
+    "test:web": "npm run test --workspace=@brightloop/web",
+    "test:e2e": "npm run test:e2e --workspace=@brightloop/web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "concurrently": "^9.1.0",
+    "prisma": "^6.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}
