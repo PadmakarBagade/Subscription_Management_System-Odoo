@@ -57,6 +57,21 @@ describe('Authentication and RBAC API Suite', () => {
       expect(res.body.errors).toBeDefined();
     });
 
+    it('should reject registration if password is 8 characters or fewer (must be more than eight characters)', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/register')
+        .send({
+          name: 'Eight Char User',
+          email: 'eightchar@example.com',
+          password: 'Abc!1234', // Exactly 8 characters with upper, lower, number, special
+          passwordConfirmation: 'Abc!1234',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.errors.password).toBeDefined();
+    });
+
     it('should reject registration if passwords do not match', async () => {
       const res = await request(app)
         .post('/api/v1/auth/register')

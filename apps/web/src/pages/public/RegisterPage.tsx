@@ -20,8 +20,8 @@ export const RegisterPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Password rules validation
-  const hasMinLength = password.length >= 8;
+  // Password rules validation (> 8 characters, upper, lower, number, special)
+  const hasMinLength = password.length > 8;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
@@ -149,7 +149,7 @@ export const RegisterPage: React.FC = () => {
               {/* Password complexity indicators */}
               <div className="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-[11px] grid grid-cols-2 gap-1 text-slate-500">
                 <span className={hasMinLength ? 'text-emerald-600 font-medium' : ''}>
-                  {hasMinLength ? '✓' : '•'} 8+ characters
+                  {hasMinLength ? '✓' : '•'} More than 8 characters
                 </span>
                 <span className={hasUpper ? 'text-emerald-600 font-medium' : ''}>
                   {hasUpper ? '✓' : '•'} 1 uppercase letter

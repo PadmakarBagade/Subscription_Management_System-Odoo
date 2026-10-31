@@ -17,7 +17,7 @@ import {
 
 export const PasswordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters long')
+  .min(9, 'Password must be more than 8 characters long')
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number')
@@ -168,6 +168,26 @@ export const QuotationCreateSchema = z.object({
   notes: z.string().optional().nullable(),
   lines: z.array(QuotationLineInputSchema).min(1, 'At least one line item is required'),
 });
+
+export const QuotationTemplateLineInputSchema = z.object({
+  productId: z.string().uuid(),
+  variantId: z.string().uuid().optional().nullable(),
+  quantity: z.coerce.number().int().min(1).default(1),
+  unitPrice: z.coerce.number().min(0).optional(),
+});
+
+export const QuotationTemplateCreateSchema = z.object({
+  name: z.string().min(2, 'Template name is required'),
+  description: z.string().optional().nullable(),
+  defaultPlanId: z.string().uuid().optional().nullable(),
+  validityDays: z.coerce.number().int().min(1).default(30),
+  isActive: z.boolean().default(true),
+  lines: z.array(QuotationTemplateLineInputSchema).optional().default([]),
+});
+
+export const QuotationTemplateUpdateSchema = QuotationTemplateCreateSchema.partial();
+export type QuotationTemplateCreateInput = z.infer<typeof QuotationTemplateCreateSchema>;
+export type QuotationTemplateUpdateInput = z.infer<typeof QuotationTemplateUpdateSchema>;
 
 // -------------------------------------------------------------
 // SUBSCRIPTION SCHEMAS
