@@ -1,0 +1,139 @@
+================================================================================
+BRIGHTLOOP SUBSCRIPTION MANAGEMENT SYSTEM - VIDEO DEMO SCRIPT
+Estimated Duration: ~3 to 4 Minutes
+Demonstrating Roles: 1. Admin | 2. Staff | 3. Customer
+================================================================================
+
+[PRE-RECORDING SETUP]
+- URL: http://localhost:5173/login
+- Note: The login screen features one-click demo buttons for all 3 roles.
+  * Admin:    admin@brightloop.com    / Admin@Brightloop2026!
+  * Staff:    staff@brightloop.com    / Staff@Brightloop2026!
+  * Customer: john.doe@example.com    / Customer@Brightloop2026!
+
+================================================================================
+PART 1: INTRO & ADMIN WORKSPACE (~75 seconds)
+================================================================================
+
+[ON SCREEN] Navigate to http://localhost:5173/login
+[VOICEOVER]:
+"Welcome to Brightloop — an enterprise-grade Subscription and Recurring Billing 
+Management platform inspired by Odoo. In this walkthrough, we will demonstrate 
+the core workflows across all three user roles: Administrator, Staff, and Customer."
+
+[ON SCREEN] Click the 'Admin' one-click demo button, then click 'Sign in'.
+[VOICEOVER]:
+"Let's begin by logging in as the System Administrator."
+
+[ON SCREEN] Land on Admin Dashboard (Executive Financial Workspace).
+- Hover over the 4 KPI cards: Total Customers, Active Subscriptions, Total Invoiced, MRR.
+- Scroll to Monthly Collections Trend area chart and Revenue by Plan chart.
+[VOICEOVER]:
+"Here on the Executive Dashboard, admins get real-time financial intelligence: 
+recurring cash flow, active subscription counts, the 12-month rolling collections 
+trend, and revenue contributions grouped by subscription plan."
+
+[ON SCREEN] Click the collapse toggle button at the bottom of the left sidebar.
+- Move cursor over collapsed icons to highlight quick tooltips.
+- Click expand button to restore the sidebar.
+[VOICEOVER]:
+"The sidebar is fully responsive and collapsible with tooltips and persisted state, 
+maximizing dashboard workspace."
+
+[ON SCREEN] In Sidebar, click 'Customers' (Customer Directory).
+- Point cursor to the top KPI cards: 'Total Receivables (Dues)', 'Accounts with Dues'.
+- Click 'With Dues Only' filter tab to highlight customers with pending balances.
+- Click 'View Statement' on Acme Innovations or Nexus Digital Systems.
+[VOICEOVER]:
+"Next, in the Customer Directory, we see full receivables visibility. Active 
+accounts with pending dues appear first, complete with registered GSTINs. 
+Opening 'View Statement' reveals the customer's total outstanding balance, 
+their active contracts, and issued invoices."
+
+[ON SCREEN] In Sidebar, click 'Users & Staff'.
+- Click 'Create Staff Account' button.
+- Show the modal popup with fields: Full Name, Work Email, Temporary Password, Role, 
+  Department, and Designation.
+- Click 'Cancel'.
+[VOICEOVER]:
+"Under 'Users & Staff', administrators provision team credentials, assign 
+operational designations, and manage RBAC authorities with instant modal popups."
+
+[ON SCREEN] In Sidebar, click 'Subscriptions'.
+- On an active subscription, click the amber 'Pause' button.
+- Show the confirmation dialog explaining that recurring billing will be halted.
+- Click 'Cancel' or click 'Renew' to show the renewal cycle confirmation dialog.
+[VOICEOVER]:
+"In the Subscriptions Lifecycle engine, admins and staff can transition contracts 
+through every state — Draft, Quotation, Confirmed, Active, Paused, or Closed — 
+with dedicated audit notes and confirmation popups."
+
+
+================================================================================
+PART 2: STAFF OPERATIONAL DESK (~60 seconds)
+================================================================================
+
+[ON SCREEN] Click the user avatar in the top right header, click 'Sign Out'.
+[ON SCREEN] Click the 'Staff' one-click demo button, then click 'Sign in'.
+[VOICEOVER]:
+"Now let's switch to the Staff role to see operational desk governance."
+
+[ON SCREEN] Land on Staff Operational Desk.
+- Notice the top header badge reads 'STAFF OPERATIONAL DESK'.
+- Highlight that sensitive financial reports and admin-only settings are hidden.
+[VOICEOVER]:
+"Staff members are greeted with an Operational Desk focused on active accounts, 
+contract renewals, and overdue payment chase queues. Notice that high-level 
+profit margins, MRR, and admin governance tabs are hidden for security."
+
+[ON SCREEN] In Sidebar, click 'Invoices'.
+- Click 'Record Payment' on an unpaid invoice.
+- Show the payment method options (Bank Transfer, UPI, Cheque, Cash) and amount.
+- Click 'Record Offline Payment'.
+[VOICEOVER]:
+"Staff can record manual offline payments — such as NEFT bank transfers or UPI — 
+instantly reducing the customer's open balance, adjusting tax ledgers, and 
+updating audit logs."
+
+
+================================================================================
+PART 3: CUSTOMER SELF-SERVICE PORTAL (~45 seconds)
+================================================================================
+
+[ON SCREEN] Sign out from Staff and click the 'Customer' one-click demo button.
+[ON SCREEN] Click 'Sign in' and land on /portal.
+[VOICEOVER]:
+"Finally, let's explore the Customer Self-Service Portal as John Doe from Acme Innovations."
+
+[ON SCREEN] Customer Dashboard.
+- Show the dark welcome banner: 'Welcome back, John Doe!' with company name.
+- Point to 'Total Outstanding Balance' alert card and active subscriptions card.
+[VOICEOVER]:
+"Customers enjoy a branded self-service workspace. They can instantly check 
+their current outstanding dues and active managed subscriptions."
+
+[ON SCREEN] In navigation, click 'My Subscriptions'.
+- Show the active Cloud ERP plan, monthly billing cadence, and next renewal date.
+[VOICEOVER]:
+"Under 'My Subscriptions', customers view their enrolled service plans, contracted 
+quantities, and upcoming cycle renewal dates."
+
+[ON SCREEN] In navigation, click 'Invoices & Payments'.
+- Click 'Download PDF' icon on any invoice to show the downloaded PDF statement.
+- Point to the 'Pay Now' button with the Razorpay integration.
+[VOICEOVER]:
+"Under 'Invoices & Payments', customers can view their complete statement history, 
+download official GST-compliant PDF invoices, and settle balances online via 
+our integrated Razorpay payment gateway."
+
+
+================================================================================
+PART 4: OUTRO (~15 seconds)
+================================================================================
+
+[ON SCREEN] Return to the landing page or portal dashboard.
+[VOICEOVER]:
+"From automated subscription lifecycles to multi-tier role-based access control 
+and customer self-service payments, Brightloop provides an all-in-one recurring 
+billing engine. Thank you for watching!"
+================================================================================
