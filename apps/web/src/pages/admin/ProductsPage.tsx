@@ -6,8 +6,12 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { Modal } from '../../components/common/Modal';
+import { useAuth } from '../../context/AuthContext';
 
 export const ProductsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -86,21 +90,34 @@ export const ProductsPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isAdmin
+                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+            }`}>
+              {isAdmin ? 'Catalog Management' : 'Read-Only Catalog'}
+            </span>
+          </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
             Products & Product Variants
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Manage base catalog items and authoritatively configured variant price adjustments.
+            {isAdmin
+              ? 'Manage base catalog items and authoritatively configured variant price adjustments.'
+              : 'Browse active catalog items and variant price additions for customer quotations.'}
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          icon={<Plus className="w-4 h-4" />}
-          onClick={() => setIsModalOpen(true)}
-        >
-          Add Product
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="primary"
+            icon={<Plus className="w-4 h-4" />}
+            onClick={() => setIsModalOpen(true)}
+          >
+            Add Product
+          </Button>
+        )}
       </div>
 
       <Card className="p-0 overflow-hidden">
@@ -121,6 +138,7 @@ export const ProductsPage: React.FC = () => {
                   <th className="py-3 px-4">Product Name & Code</th>
                   <th className="py-3 px-4">Type</th>
                   <th className="py-3 px-4 text-right">Base Sales Price</th>
+                  {isAdmin && <th className="py-3 px-4 text-right">Cost Price</th>}
                   <th className="py-3 px-4">Configured Variants (Price Adjustments)</th>
                   <th className="py-3 px-4 text-center">Status</th>
                 </tr>
@@ -140,6 +158,11 @@ export const ProductsPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-right font-bold text-slate-900 text-sm">
                       ₹{Number(p.salesPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
+                    {isAdmin && (
+                      <td className="py-3.5 px-4 text-right text-slate-500 text-xs font-mono">
+                        {p.costPrice !== undefined ? `₹${Number(p.costPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                      </td>
+                    )}
                     <td className="py-3.5 px-4">
                       {p.variants?.length === 0 ? (
                         <span className="text-slate-400">No variants</span>

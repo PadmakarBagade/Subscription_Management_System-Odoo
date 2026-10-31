@@ -9,9 +9,11 @@ import { PdfService } from '../services/pdfService';
 import { AuditService } from '../services/auditService';
 import { calculateNextBillingDate } from '../utils/date';
 
+import { sanitizeDataForRole } from '../utils/serializer';
+
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, requireRole('ADMIN', 'STAFF'));
 
 // -------------------------------------------------------------
 // GET /api/v1/quotations (List quotations)
@@ -19,11 +21,6 @@ router.use(authenticate);
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const where: any = {};
-
-    // If CUSTOMER, only show own quotations
-    if (req.user!.role === 'CUSTOMER') {
-      where.customerId = req.user!.customerId;
-    }
 
     const quotations = await prisma.quotation.findMany({
       where,
@@ -37,7 +34,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: quotations,
+      data: sanitizeDataForRole(quotations, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -143,7 +140,7 @@ router.post('/', requireRole('ADMIN', 'STAFF'), async (req: Request, res: Respon
     res.status(201).json({
       success: true,
       message: 'Quotation created successfully',
-      data: quotation,
+      data: sanitizeDataForRole(quotation, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -174,7 +171,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
     res.json({
       success: true,
-      data: quotation,
+      data: sanitizeDataForRole(quotation, req.user?.role),
     });
   } catch (error) {
     next(error);
@@ -291,7 +288,7 @@ router.post('/:id/confirm', async (req: Request, res: Response, next: NextFuncti
     res.json({
       success: true,
       message: 'Quotation confirmed and subscription generated successfully',
-      data: { quotation, subscription },
+      data: sanitizeDataForRole({ quotation, subscription }, req.user?.role),
     });
   } catch (error) {
     next(error);

@@ -86,12 +86,41 @@ export function requireRole(...allowedRoles: UserRole[]) {
 
     if (!allowedRoles.includes(req.user.role)) {
       return next(
-        new AppError('You do not have permission to perform this action.', 403)
+        new AppError('Forbidden: Insufficient privileges to perform this action.', 403)
       );
     }
 
     next();
   };
+}
+
+export const requireAdmin = requireRole('ADMIN');
+export const requireStaffOrAdmin = requireRole('ADMIN', 'STAFF');
+
+/**
+ * Middleware that grants full access (GET, POST, PATCH, DELETE) to ADMIN,
+ * and READ-ONLY access (GET) to STAFF.
+ * Returns 403 for Staff write attempts and for unpermitted roles.
+ */
+export function requireAdminOrReadOnlyForStaff(req: Request, _res: Response, next: NextFunction) {
+  if (!req.user) {
+    return next(new AppError('Authentication required.', 401));
+  }
+
+  if (req.user.role === 'ADMIN') {
+    return next();
+  }
+
+  if (req.user.role === 'STAFF') {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+      return next();
+    }
+    return next(
+      new AppError('Forbidden: Staff accounts have read-only access to this catalog configuration.', 403)
+    );
+  }
+
+  return next(new AppError('Forbidden: Insufficient privileges.', 403));
 }
 
 export function requireCustomerOwnership(

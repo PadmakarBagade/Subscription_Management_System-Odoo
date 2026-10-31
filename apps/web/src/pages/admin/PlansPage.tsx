@@ -6,8 +6,12 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { Modal } from '../../components/common/Modal';
+import { useAuth } from '../../context/AuthContext';
 
 export const PlansPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [plans, setPlans] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,21 +93,34 @@ export const PlansPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isAdmin
+                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+            }`}>
+              {isAdmin ? 'Plan Management' : 'Read-Only Catalog'}
+            </span>
+          </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
             Subscription Plans
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Configure frequencies (Daily, Weekly, Monthly, Yearly), pause rules, and pricing tiers.
+            {isAdmin
+              ? 'Configure frequencies (Daily, Weekly, Monthly, Yearly), pause rules, and pricing tiers.'
+              : 'Browse active recurring subscription plans and policies for quotations.'}
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          icon={<Plus className="w-4 h-4" />}
-          onClick={() => setIsModalOpen(true)}
-        >
-          Add Subscription Plan
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="primary"
+            icon={<Plus className="w-4 h-4" />}
+            onClick={() => setIsModalOpen(true)}
+          >
+            Add Subscription Plan
+          </Button>
+        )}
       </div>
 
       {loading ? (

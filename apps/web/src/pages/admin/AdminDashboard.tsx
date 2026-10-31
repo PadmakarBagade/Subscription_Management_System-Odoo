@@ -31,9 +31,16 @@ import { StatCard } from '../../components/common/StatCard';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
+import { useAuth } from '../../context/AuthContext';
+import { OperationalDashboard } from './OperationalDashboard';
 
 export const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  if (user?.role === 'STAFF') {
+    return <OperationalDashboard />;
+  }
 
   const [metrics, setMetrics] = useState<any>(null);
   const [monthlyCollections, setMonthlyCollections] = useState<any[]>([]);

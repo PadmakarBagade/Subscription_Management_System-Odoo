@@ -20,8 +20,12 @@ import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
+import { useAuth } from '../../context/AuthContext';
 
 export const DiscountsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -149,19 +153,32 @@ export const DiscountsPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isAdmin
+                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+            }`}>
+              {isAdmin ? 'Discounts Management' : 'Read-Only Catalog'}
+            </span>
+          </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <Tag className="w-7 h-7 text-indigo-600" />
             Discount Rules & Promo Coupons
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Automated percentage reductions, coupon voucher redemption caps, and minimum purchase volume incentives.
+            {isAdmin
+              ? 'Automated percentage reductions, coupon voucher redemption caps, and minimum purchase volume incentives.'
+              : 'Browse active promotion codes and volume incentives available for customer quotations.'}
           </p>
         </div>
 
-        <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Create Discount Rule
-        </Button>
+        {isAdmin && (
+          <Button variant="primary" onClick={handleOpenAdd} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Create Discount Rule
+          </Button>
+        )}
       </div>
 
       {/* Discount Rules Table */}
@@ -189,7 +206,7 @@ export const DiscountsPage: React.FC = () => {
                   <th className="px-4 py-3 text-center">Thresholds</th>
                   <th className="px-4 py-3 text-center">Usage Count</th>
                   <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -226,28 +243,42 @@ export const DiscountsPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleToggleActive(d)}
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
-                          d.isActive
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {d.isActive ? 'Active' : 'Disabled'}
-                      </button>
+                      {isAdmin ? (
+                        <button
+                          onClick={() => handleToggleActive(d)}
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                            d.isActive
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {d.isActive ? 'Active' : 'Disabled'}
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            d.isActive
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {d.isActive ? 'Active' : 'Disabled'}
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(d)}
-                        className="flex items-center gap-1.5 ml-auto"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit
-                      </Button>
-                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(d)}
+                          className="flex items-center gap-1.5 ml-auto"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -149,4 +149,205 @@ export class ReportingService {
 
     return plansWithRevenue;
   }
+
+  /**
+   * Retrieves operational dashboard metrics for Staff (and Admin).
+   * Strictly operational: counts, statuses, chase list, drafts, renewals.
+   * NO financial MRR/ARR, revenue trends, profit margins, or billing engine health.
+   */
+  static async getOperationalMetrics() {
+    const now = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(now.getDate() + 7);
+
+    const [
+      totalCustomers,
+      subscriptionCounts,
+      draftInvoicesCount,
+      outstandingAggregate,
+      overdueInvoicesCount,
+      overdueAmountAggregate,
+      overdueChaseList,
+      recentPayments,
+      upcomingRenewalsCount,
+      upcomingRenewalsList,
+    ] = await Promise.all([
+      // 1. Total Customers
+      prisma.customerProfile.count(),
+
+      // 2. Subscription status distribution
+      prisma.subscription.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+
+      // 3. Invoices awaiting confirmation (drafts)
+      prisma.invoice.count({
+        where: { status: 'DRAFT' },
+      }),
+
+      // 4. Total Outstanding Amount (uncollected balance)
+      prisma.invoice.aggregate({
+        where: {
+          status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+        },
+        _sum: { balance: true },
+      }),
+
+      // 5. Overdue Invoices Count
+      prisma.invoice.count({
+        where: {
+          balance: { gt: 0 },
+          dueDate: { lt: now },
+          status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+        },
+      }),
+
+      // Overdue Amount
+      prisma.invoice.aggregate({
+        where: {
+          balance: { gt: 0 },
+          dueDate: { lt: now },
+          status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+        },
+        _sum: { balance: true },
+      }),
+
+      // Overdue Chase List (Top 10 overdue)
+      prisma.invoice.findMany({
+        where: {
+          balance: { gt: 0 },
+          dueDate: { lt: now },
+          status: { notIn: ['CANCELLED', 'VOID', 'PAID'] },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 10,
+        select: {
+          id: true,
+          invoiceNumber: true,
+          dueDate: true,
+          balance: true,
+          totalAmount: true,
+          customer: {
+            select: {
+              id: true,
+              companyName: true,
+              phone: true,
+              user: {
+                select: { name: true, email: true },
+              },
+            },
+          },
+        },
+      }),
+
+      // 6. Recent Payments (Last 10 payments)
+      prisma.payment.findMany({
+        orderBy: { paymentDate: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          paymentNumber: true,
+          amount: true,
+          paymentDate: true,
+          paymentMethod: true,
+          status: true,
+          isStaffRecorded: true,
+          customer: {
+            select: {
+              companyName: true,
+              user: { select: { name: true, email: true } },
+            },
+          },
+        },
+      }),
+
+      // 7. Upcoming renewals count (next 7 days)
+      prisma.subscription.count({
+        where: {
+          status: 'ACTIVE',
+          nextBillingDate: { gte: now, lte: sevenDaysFromNow },
+        },
+      }),
+
+      // Upcoming renewals list
+      prisma.subscription.findMany({
+        where: {
+          status: 'ACTIVE',
+          nextBillingDate: { gte: now, lte: sevenDaysFromNow },
+        },
+        orderBy: { nextBillingDate: 'asc' },
+        take: 10,
+        select: {
+          id: true,
+          subscriptionNumber: true,
+          nextBillingDate: true,
+          billingFrequency: true,
+          customer: {
+            select: {
+              companyName: true,
+              user: { select: { name: true, email: true } },
+            },
+          },
+          plan: {
+            select: { name: true, code: true },
+          },
+        },
+      }),
+    ]);
+
+    const activeSubscriptionsCount =
+      subscriptionCounts.find((s) => s.status === 'ACTIVE')?._count.id || 0;
+
+    const subscriptionStatusDistribution = subscriptionCounts.map((s) => ({
+      status: s.status,
+      count: s._count.id,
+    }));
+
+    return {
+      totalCustomers,
+      activeSubscriptionsCount,
+      subscriptionStatusDistribution,
+      invoicesAwaitingConfirmationCount: draftInvoicesCount,
+      totalOutstandingAmount: Number(outstandingAggregate._sum.balance || 0),
+      overdueInvoices: {
+        count: overdueInvoicesCount,
+        totalAmount: Number(overdueAmountAggregate._sum.balance || 0),
+        chaseList: overdueChaseList.map((inv) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          customerName: inv.customer?.user?.name || inv.customer?.companyName || 'Unknown',
+          companyName: inv.customer?.companyName,
+          email: inv.customer?.user?.email,
+          phone: inv.customer?.phone,
+          dueDate: inv.dueDate,
+          balance: Number(inv.balance),
+          totalAmount: Number(inv.totalAmount),
+        })),
+      },
+      recentPayments: recentPayments.map((p) => ({
+        id: p.id,
+        paymentNumber: p.paymentNumber,
+        customerName: p.customer?.user?.name || p.customer?.companyName || 'Unknown',
+        companyName: p.customer?.companyName,
+        amount: Number(p.amount),
+        paymentDate: p.paymentDate,
+        paymentMethod: p.paymentMethod,
+        status: p.status,
+        isStaffRecorded: p.isStaffRecorded,
+      })),
+      upcomingRenewals: {
+        count: upcomingRenewalsCount,
+        list: upcomingRenewalsList.map((s) => ({
+          id: s.id,
+          subscriptionNumber: s.subscriptionNumber,
+          customerName: s.customer?.user?.name || s.customer?.companyName || 'Unknown',
+          companyName: s.customer?.companyName,
+          planName: s.plan.name,
+          nextBillingDate: s.nextBillingDate,
+          billingFrequency: s.billingFrequency,
+        })),
+      },
+    };
+  }
 }

@@ -37,6 +37,8 @@ import { ReportsPage } from './pages/admin/ReportsPage';
 import { SimulatorPage } from './pages/admin/SimulatorPage';
 import { AuditLogsPage } from './pages/admin/AuditLogsPage';
 import { AlertsPage } from './pages/admin/AlertsPage';
+import { UsersPage } from './pages/admin/UsersPage';
+import { RoleGuard } from './components/auth/RoleGuard';
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{
@@ -163,14 +165,64 @@ export const App: React.FC = () => {
             <Route path="subscriptions" element={<SubscriptionsPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="payments" element={<PaymentsPage />} />
-            <Route path="billing-jobs" element={<BillingJobsPage />} />
+            <Route
+              path="billing-jobs"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <BillingJobsPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="billing-health"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <BillingJobsPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <UsersPage />
+                </RoleGuard>
+              }
+            />
             <Route path="taxes" element={<TaxesPage />} />
             <Route path="discounts" element={<DiscountsPage />} />
-            <Route path="reports" element={<ReportsPage />} />
+            <Route
+              path="reports"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <ReportsPage />
+                </RoleGuard>
+              }
+            />
             <Route path="simulator" element={<SimulatorPage />} />
-            <Route path="audit-logs" element={<AuditLogsPage />} />
+            <Route
+              path="audit-logs"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <AuditLogsPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="audit"
+              element={
+                <RoleGuard allowedRoles={['ADMIN']}>
+                  <AuditLogsPage />
+                </RoleGuard>
+              }
+            />
             <Route path="alerts" element={<AlertsPage />} />
           </Route>
+
+          {/* Top-level aliases for direct URL typing */}
+          <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+          <Route path="/audit" element={<Navigate to="/admin/audit-logs" replace />} />
+          <Route path="/billing-health" element={<Navigate to="/admin/billing-jobs" replace />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
